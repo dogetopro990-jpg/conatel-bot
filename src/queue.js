@@ -10,6 +10,13 @@ class ResponseQueue {
   }
 
   enqueue(chatId, buildResponse) {
+    const timestamp = new Date().toISOString();
+    const chatIdClean = chatId.split('@')[0];
+    
+    console.log(`\n📋 [${timestamp}]`);
+    console.log(`   ENCOLADO → ${chatIdClean}`);
+    console.log(`   Posición en cola: ${this.queue.length + 1}`);
+    
     return new Promise((resolve, reject) => {
       this.queue.push({ chatId, buildResponse, resolve, reject });
       this.process();
@@ -23,15 +30,25 @@ class ResponseQueue {
     while (this.queue.length > 0) {
       const task = this.queue.shift();
       const delay = this.randomDelay();
+      const chatIdClean = task.chatId.split('@')[0];
+
+      console.log(`\n⏳ [${new Date().toISOString()}]`);
+      console.log(`   Procesando → ${chatIdClean}`);
+      console.log(`   Delay: ${(delay / 1000).toFixed(1)}s`);
 
       try {
+        // 1. Activar typing
         await this.sendPresence(task.chatId, 'composing');
         await this.sleep(delay);
 
+        // 2. Generar respuesta
+        console.log(`   🧠 Generando respuesta...`);
         const response = await task.buildResponse();
 
+        // 3. Desactivar typing
         await this.sendPresence(task.chatId, 'paused');
 
+        // 4. Enviar respuesta
         if (response && typeof response === 'string' && response.trim()) {
           await this.sendText(task.chatId, response);
         }
@@ -43,6 +60,7 @@ class ResponseQueue {
         task.reject(error);
       }
 
+      // 5. Pequeña pausa entre mensajes
       await this.sleep(500);
     }
 

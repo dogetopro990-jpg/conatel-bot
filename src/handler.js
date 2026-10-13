@@ -5,10 +5,12 @@ const { createTicket, appendUpdate } = require('./tickets');
 const { refreshPriority } = require('./priority');
 
 class Handler {
-  constructor({ store, responseQueue, logger }) {
+  constructor({ store, responseQueue, logger, sendText, sendPresence }) {
     this.store = store;
     this.responseQueue = responseQueue;
     this.logger = logger;
+    this.sendText = sendText;
+    this.sendPresence = sendPresence;
     this.history = {};
   }
 
@@ -72,8 +74,22 @@ class Handler {
       this.store.getEmployee(senderPhone)?.name ||
       senderPhone;
 
+    // Log detallado del mensaje recibido
+    const timestamp = new Date().toISOString();
+    const preview = text.length > 50 ? text.substring(0, 50) + '...' : text;
+    const chatIdClean = chatId.split('@')[0];
+    
+    console.log(`\n📥 [${timestamp}]`);
+    console.log(`   RECIBIDO ← ${senderPhone} (${senderName})`);
+    console.log(`   Chat: ${chatIdClean}`);
+    console.log(`   Tipo: ${isGroup ? 'GRUPO' : 'PRIVADO'}`);
+    console.log(`   Texto: "${preview}"`);
+    console.log(`   FromMe: ${raw.key.fromMe}`);
+    console.log(`   Self-test: ${isSelfTest ? 'SÍ' : 'NO'}`);
+
     // Si es comando, procesar por ruta de comandos
     if (text.startsWith('/')) {
+      console.log(`   📋 Ruta: COMANDO`);
       await this.handleCommand({ chatId, isGroup, senderPhone, senderName, text });
       return;
     }
@@ -81,8 +97,13 @@ class Handler {
     // Si es grupo y no hay ticket activo ni tag, ignorar
     if (isGroup) {
       const activeTicketId = this.store.getActiveTicket(`${chatId}:${senderPhone}`);
-      if (!parseTicketTag(text) && !activeTicketId) return;
+      if (!parseTicketTag(text) && !activeTicketId) {
+        console.log(`   ⏭️  Ignorado: grupo sin ticket activo`);
+        return;
+      }
     }
+
+    console.log(`   🤖 Ruta: IA CONVERSACIONAL`);
 
     // Encolar respuesta natural con IA
     this.responseQueue.enqueue(chatId, async () => {
@@ -109,6 +130,10 @@ class Handler {
     const args = parts.slice(1).join(' ').trim();
     const isOwner = config.isOwner(senderPhone);
 
+    console.log(`   Comando: ${cmd}`);
+    console.log(`   Args: ${args || '(ninguno)'}`);
+    console.log(`   Owner: ${isOwner ? 'SÍ' : 'NO'}`);
+
     // Encolar comandos de usuario para mantener typing consistente
     const runCommand = async () => {
       try {
@@ -123,7 +148,7 @@ class Handler {
     const fastOwnerCommands = ['/owner'];
     if (fastOwnerCommands.includes(cmd) && isOwner) {
       const response = await runCommand();
-      if (response) await this.responseQueue.sendText(chatId, response);
+      if (response) await this.sendText(chatId, response);
       return;
     }
 
@@ -386,10 +411,7 @@ class Handler {
           .filter(Boolean)
       ]);
       for (const phone of targets) {
-        await this.responseQueue.sendText(
-          `${phone}@s.whatsapp.net`,
-          `📢 Aviso CONATEL:\n${value}`
-        );
+        await this.sendText(`${phone}@s.whatsapp.net`, `📢 Aviso CONATEL:\n${value}`);
       }
       return `Aviso enviado a ${targets.size} destinatarios.`;
     }
@@ -422,11 +444,17 @@ class Handler {
     }
 
     // Detectar intención con IA
+    console.log(`   🧠 Detectando intención con IA...`);
     const intent = await detectIntent(text, {
       employee,
       activeTicket,
       history
     });
+
+    console.log(`   Intención: ${intent.intencion}`);
+    console.log(`   Confianza: ${intent.confianza}%`);
+    if (intent.area) console.log(`   Área: ${intent.area}`);
+    if (intent.urgencia) console.log(`   Urgencia: ${intent.urgencia}`);
 
     this.addToHistory(historyKey, 'user', text);
 
@@ -442,6 +470,7 @@ class Handler {
     });
 
     // Generar respuesta natural con IA
+    console.log(`   💬 Generando respuesta natural...`);
     const naturalResponse = await generateResponse({
       intent,
       employee: this.store.getEmployee(senderPhone),
@@ -449,6 +478,8 @@ class Handler {
       userMessage: text,
       context: {}
     });
+
+    console.log(`   Respuesta: "${naturalResponse.substring(0, 50)}..."`);
 
     this.addToHistory(historyKey, 'bot', naturalResponse);
     return naturalResponse;
@@ -526,6 +557,7 @@ class Handler {
         });
 
         await this.store.save();
+        console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
         break;
       }
 
@@ -553,6 +585,7 @@ class Handler {
         );
 
         await this.store.save();
+        console.log(`   📝 Ticket actualizado: #T-${ticket.id}`);
         break;
       }
 
