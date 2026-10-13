@@ -7,15 +7,25 @@ const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 const RESPONSES = {
   saludo: [
-    '¡Hola! Soy el asistente de CONATEL, ¿en qué te puedo ayudar?',
-    'Hola, ¿cómo estás? Dime qué necesitas.',
-    '¡Buenas! Estoy aquí para ayudarte con lo que necesites.',
-    'Hola, cuéntame ¿qué puedo hacer por ti hoy?',
-    '¡Hey! Soy tu asistente de CONATEL, ¿en qué te ayudo?',
-    'Buenos días, ¿en qué puedo colaborarte?',
-    'Hola, estoy aquí para ayudarte. ¿Qué necesitas?',
-    '¡Hola! Cuéntame, ¿en qué te puedo asistir?',
-    'Buenas, ¿cómo te puedo ayudar hoy?'
+    '¡Hola! Soy el asistente de CONATEL. ¿Con quién tengo el gusto de hablar?',
+    'Hola, ¿cómo estás? ¿Me puedes decir tu nombre?',
+    '¡Buenas! ¿Con quién hablo?',
+    'Hola, bienvenido a CONATEL. ¿Me puedes decir tu nombre completo?',
+    '¡Hey! Soy tu asistente de CONATEL. ¿Cómo te llamas?',
+    'Buenos días, ¿con quién tengo el placer de hablar?',
+    'Hola, ¿me puedes decir tu nombre para ayudarte mejor?',
+    '¡Hola! ¿Con quién hablo hoy?',
+    'Buenas, ¿me puedes decir tu nombre?'
+  ],
+  pedir_area: [
+    '¿En qué área trabajas: soporte, infraestructura o desarrollo?',
+    '¿A qué área perteneces: soporte, infraestructura o desarrollo?',
+    'Para ayudarte mejor, ¿me puedes decir tu área: soporte, infraestructura o desarrollo?'
+  ],
+  pedir_cargo: [
+    '¿Cuál es tu cargo o puesto?',
+    '¿Qué cargo tienes en la empresa?',
+    '¿Me puedes decir tu cargo?'
   ],
   agradecimiento: [
     '¡Con gusto! ¿Necesitas algo más?',
@@ -37,25 +47,17 @@ const RESPONSES = {
     '¡Hasta pronto! Estoy aquí cuando me necesites.',
     'Chao, que tengas un buen día.'
   ],
-  registro: [
-    'Para registrarte necesito tu nombre completo, área (soporte, infraestructura o desarrollo) y cargo.',
-    'Claro, para registrarte envíame: nombre, área y cargo en un solo mensaje.',
-    'Perfecto, necesito algunos datos: nombre, área y cargo. ¿Me los puedes dar?',
-    'Para completar tu registro necesito: nombre completo, área y cargo.',
-    'Ok, para registrarte envíame tus datos: nombre, área y cargo.'
+  transicion_a_solicitud: [
+    'Bien {nombre}, ahora dime, ¿qué necesitas?',
+    'Perfecto {nombre}, ¿en qué te puedo ayudar hoy?',
+    'Listo {nombre}, cuéntame, ¿qué problema tienes?',
+    'Ok {nombre}, ¿qué necesitas que te ayude a resolver?',
+    'Muy bien {nombre}, ¿cómo te puedo ayudar?'
   ],
   crear_ticket: [
-    'Entiendo, cuéntame más detalles del problema para crear el ticket.',
-    'Ok, necesito más información. ¿Puedes describirme mejor qué está pasando?',
-    'Para crear el ticket necesito más detalles. ¿Qué problema tienes exactamente?',
-    'Claro, pero necesito que me expliques un poco más sobre el problema.',
-    'Entendido, ¿puedes darme más contexto sobre lo que necesitas?',
-    'Ok, cuéntame más sobre el problema para poder ayudarte mejor.'
-  ],
-  pedir_area: [
-    '¿A qué área corresponde esto: soporte, infraestructura o desarrollo?',
-    'Necesito saber el área: ¿es de soporte, infraestructura o desarrollo?',
-    'Para clasificar mejor, ¿esto es de soporte, infraestructura o desarrollo?'
+    'Entiendo, voy a crear el ticket.',
+    'Ok, voy a registrar esto como un ticket.',
+    'Entendido, voy a crear el ticket para esto.'
   ],
   ticket_creado: [
     'Listo, ya creé tu ticket. Te avisaré cuando haya novedades.',
@@ -109,9 +111,16 @@ const RESPONSES = {
   ]
 };
 
-function getRandomResponse(category) {
+function getRandomResponse(category, replacements = {}) {
   const responses = RESPONSES[category] || RESPONSES.no_entendido;
-  return responses[Math.floor(Math.random() * responses.length)];
+  let response = responses[Math.floor(Math.random() * responses.length)];
+  
+  // Reemplazar placeholders
+  Object.keys(replacements).forEach(key => {
+    response = response.replace(`{${key}}`, replacements[key]);
+  });
+  
+  return response;
 }
 
 // ============ UTILIDADES ============
@@ -209,6 +218,30 @@ async function gemini(prompt, { json = true } = {}) {
   }
 }
 
+// ============ DETECTAR URGENCIA AUTOMÁTICA ============
+
+function detectUrgencyFromText(text) {
+  const t = normalizeText(text);
+  
+  // Crítica: problemas que bloquean operaciones completas
+  if (/(no\s?funciona|caida|sin\s?(servicio|internet|acceso|luz)|emergencia|critico|urgente|bloquea|no\s?puedo\s?trabajar|produccion|todo\s?el\s?(area|departamento|edificio))/i.test(t)) {
+    return 'critica';
+  }
+  
+  // Alta: problemas importantes pero no bloqueantes totales
+  if (/(importante|hoy|pronto|afecta|prioridad|no\s?puedo|error|falla|problema|lento|demora)/i.test(t)) {
+    return 'alta';
+  }
+  
+  // Baja: consultas o problemas menores
+  if (/(consulta|duda|cuando|como|informacion|pregunta|saber|puedes\s?decirme)/i.test(t)) {
+    return 'baja';
+  }
+  
+  // Media: por defecto
+  return 'media';
+}
+
 // ============ DETECTAR INTENCIÓN AVANZADO ============
 
 function fallbackDetectIntent(text, context = {}) {
@@ -230,7 +263,7 @@ function fallbackDetectIntent(text, context = {}) {
     };
   }
 
-  // Saludos
+  // Saludos - pedir nombre
   if (/^(hola|buenos?\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/.test(t)) {
     return {
       intencion: 'saludo',
@@ -240,7 +273,7 @@ function fallbackDetectIntent(text, context = {}) {
       titulo: null,
       descripcion: null,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 90,
+      confianza: 95,
       info_completa: false
     };
   }
@@ -281,7 +314,7 @@ function fallbackDetectIntent(text, context = {}) {
       intencion: 'actualizar_ticket',
       ticket_id: ticketId,
       area: null,
-      urgencia: null,
+      urgencia: detectUrgencyFromText(text),
       titulo: null,
       descripcion: text,
       datos_registro: { nombre: null, area: null, cargo: null },
@@ -300,18 +333,11 @@ function fallbackDetectIntent(text, context = {}) {
     area = 'soporte';
   }
 
-  // Detectar urgencia
-  let urgencia = 'media';
-  if (/(urgente|critico|caida|produccion|no\s?funciona\s?nada|bloquea|emergencia)/.test(t)) {
-    urgencia = 'critica';
-  } else if (/(importante|hoy|pronto|afecta|prioridad)/.test(t)) {
-    urgencia = 'alta';
-  } else if (/(consulta|duda|cuando|como|informacion)/.test(t)) {
-    urgencia = 'baja';
-  }
+  // Detectar urgencia automáticamente
+  const urgencia = detectUrgencyFromText(text);
 
   // Problemas/solicitudes → crear ticket
-  const problemKeywords = /(no\s?(puedo|funciona|hay|entra)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo))/;
+  const problemKeywords = /(no\s?(puedo|funciona|hay|entra)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo)|computadora|pc|equipo)/;
   
   if (problemKeywords.test(t) && t.length >= 10) {
     return {
@@ -322,39 +348,9 @@ function fallbackDetectIntent(text, context = {}) {
       titulo: text.slice(0, 120),
       descripcion: text,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 80,
+      confianza: 85,
       info_completa: true,
       falta_area: !area
-    };
-  }
-
-  // Datos de registro
-  if (/(soy|me\s?llamo|mi\s?nombre|trabajo\s?en|cargo|analista|tecnico|ingeniero|desarrollador)/.test(t)) {
-    return {
-      intencion: 'registro',
-      ticket_id: null,
-      area: null,
-      urgencia: null,
-      titulo: null,
-      descripcion: null,
-      datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 65,
-      info_completa: false
-    };
-  }
-
-  // Preguntas sobre detalles/información
-  if (/(que\s?(detalles|informacion|necesitas|quieres|puedo)|cuentame|explicame|describe)/.test(t)) {
-    return {
-      intencion: 'consulta',
-      ticket_id: null,
-      area: null,
-      urgencia: null,
-      titulo: null,
-      descripcion: text,
-      datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 60,
-      info_completa: false
     };
   }
 
@@ -431,12 +427,14 @@ Reglas:
 4. Si menciona #T-123, intencion = actualizar_ticket
 5. Si hay ticket activo y el mensaje es corto, intencion = aclaracion
 6. Si describe un problema, intencion = crear_ticket y info_completa = true
-7. Si da sus datos, intencion = registro
-8. Si pregunta algo, intencion = consulta
-9. area: soporte, infraestructura, desarrollo
-10. urgencia: critica, alta, media, baja
-11. confianza: 0-100
-12. info_completa: true si hay suficiente información para crear ticket, false si falta algo
+7. DETECTA URGENCIA AUTOMÁTICAMENTE del contexto:
+   - critica: si dice "no funciona", "caída", "emergencia", "urgente", "bloquea", "no puedo trabajar"
+   - alta: si dice "importante", "hoy", "afecta", "error", "falla", "problema"
+   - baja: si es consulta o pregunta
+   - media: por defecto
+8. area: soporte, infraestructura, desarrollo
+9. confianza: 0-100
+10. info_completa: true si hay suficiente información para crear ticket
 `.trim();
 
   const ai = await gemini(prompt, { json: true });
@@ -464,6 +462,11 @@ Reglas:
   merged.area = safeArea(merged.area);
   merged.confianza = Number(merged.confianza) || 0;
 
+  // Si no detectó urgencia, usar detección automática
+  if (!merged.urgencia || merged.urgencia === 'null') {
+    merged.urgencia = detectUrgencyFromText(text);
+  }
+
   return merged;
 }
 
@@ -475,36 +478,6 @@ async function generateResponse({ intent, employee, activeTicket, userMessage, c
   if (['saludo', 'agradecimiento', 'despedida', 'actualizar_ticket', 'aclaracion'].includes(intent.intencion)) {
     console.log(`   ✅ Respuesta rápida sin IA`);
     return quickResponse;
-  }
-
-  const prompt = `
-Eres un asistente humano de CONATEL por WhatsApp. Respondes de forma natural, amable y profesional.
-
-Situación actual:
-- Mensaje del usuario: ${JSON.stringify(userMessage)}
-- Intención detectada: ${intent.intencion}
-- Usuario registrado: ${employee ? `${employee.name}, área ${employee.area}, cargo ${employee.role}` : 'NO registrado aún'}
-- Ticket activo: ${activeTicket ? `#${activeTicket.id} - ${activeTicket.title} (${activeTicket.area}, ${activeTicket.status})` : 'ninguno'}
-- Área detectada: ${intent.area || 'no definida'}
-- Urgencia detectada: ${intent.urgencia || 'no definida'}
-
-Reglas:
-1. SALUDO: Saluda de forma variada
-2. REGISTRO: Pide los datos faltantes
-3. CREAR_TICKET: Si falta área, pregunta solo por el área. Si falta descripción, pide descripción. Si todo está, confirma creación
-4. ACTUALIZAR_TICKET: Confirma que agregaste la información
-5. CONSULTA: Pide más contexto o responde
-6. AGRADECIMIENTO: Responde de forma variada
-7. DESPEDIDA: Despídete de forma variada
-8. OTRO: Pide aclaración
-
-NO uses emojis excesivos. Sé breve (máximo 2-3 líneas). Sin markdown.
-`.trim();
-
-  const response = await gemini(prompt, { json: false });
-
-  if (response && typeof response === 'string') {
-    return response.trim().replace(/^["']|["']$/g, '');
   }
 
   return quickResponse;
@@ -524,12 +497,7 @@ function fallbackResponse(intent, employee, activeTicket, userMessage, history =
       return getRandomResponse('agradecimiento');
     case 'despedida':
       return getRandomResponse('despedida');
-    case 'registro':
-      return getRandomResponse('registro');
     case 'crear_ticket':
-      if (intent.falta_area) {
-        return getRandomResponse('pedir_area');
-      }
       if (intent.area) {
         return `Entiendo, es un tema de ${intent.area}. Voy a crear el ticket.`;
       }
@@ -585,5 +553,7 @@ module.exports = {
   detectIntent,
   generateResponse,
   extractRegistration,
-  safeArea
+  safeArea,
+  detectUrgencyFromText,
+  getRandomResponse
 };

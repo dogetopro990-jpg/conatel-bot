@@ -1,6 +1,6 @@
 const config = require('./config');
 const { toPhone, parseTicketTag, ticketTag, truncate, nowISO } = require('./utils');
-const { detectIntent, generateResponse, extractRegistration } = require('./ai');
+const { detectIntent, generateResponse, extractRegistration, getRandomResponse } = require('./ai');
 const { createTicket, appendUpdate } = require('./tickets');
 const { refreshPriority } = require('./priority');
 
@@ -158,10 +158,6 @@ class Handler {
       return this.helpText();
     }
 
-    if (['/registrarme', '/registro'].includes(cmd)) {
-      return await this.cmdRegister({ chatId, senderPhone, args });
-    }
-
     if (['/estado', '/miestado'].includes(cmd)) {
       return this.cmdStatus({ senderPhone, isOwner });
     }
@@ -192,26 +188,6 @@ class Handler {
     return 'Comando no reconocido. Usa /help.';
   }
 
-  async cmdRegister({ chatId, senderPhone, args }) {
-    const sessionKey = `reg:${senderPhone}`;
-    this.store.setSession(sessionKey, {
-      step: 'datos',
-      pendingRequest: args || null,
-      startedAt: nowISO()
-    });
-    await this.store.save();
-
-    return [
-      '👋 Para registrarte necesito algunos datos.',
-      '',
-      `Envíame en un mensaje: nombre completo, área (${config.areas.join(', ')}) y cargo.`,
-      '',
-      'Ejemplo: Juan Pérez, soporte, analista.',
-      '',
-      'Escribe /cancelar para salir.'
-    ].join('\n');
-  }
-
   cmdStatus({ senderPhone, isOwner }) {
     const tickets = this.store
       .listOpenTickets()
@@ -229,14 +205,7 @@ class Handler {
     const employee = this.store.getEmployee(senderPhone);
 
     if (!employee) {
-      const sessionKey = `reg:${senderPhone}`;
-      this.store.setSession(sessionKey, {
-        step: 'datos',
-        pendingRequest: args,
-        startedAt: nowISO()
-      });
-      await this.store.save();
-      return 'Para crear tickets primero regístrate.\nEnvíame: nombre, área y cargo.';
+      return 'Primero necesito algunos datos. ¿Cómo te llamas?';
     }
 
     if (!args) return 'Envía /ticket descripción del problema o solicitud.';
@@ -418,15 +387,18 @@ class Handler {
     const activeTicketId = this.store.getActiveTicket(historyKey);
     const activeTicket = activeTicketId ? this.store.getTicket(activeTicketId) : null;
 
+    // Flujo de registro conversacional
     const sessionKey = `reg:${senderPhone}`;
     const session = this.store.getSession(sessionKey);
-    if (session?.step === 'datos') {
-      const response = await this.finishRegistration({
+    
+    if (session && session.step) {
+      const response = await this.handleRegistrationFlow({
         chatId,
         senderPhone,
         senderName,
         text,
-        session
+        session,
+        history
       });
       return response;
     }
@@ -456,7 +428,6 @@ class Handler {
       activeTicket
     });
 
-    // Si hay respuesta directa del executeIntent, usarla
     if (response) {
       this.addToHistory(historyKey, 'bot', response);
       return response;
@@ -478,53 +449,82 @@ class Handler {
     return naturalResponse;
   }
 
-  async finishRegistration({ chatId, senderPhone, senderName, text, session }) {
+  async handleRegistrationFlow({ chatId, senderPhone, senderName, text, session, history }) {
     const sessionKey = `reg:${senderPhone}`;
-    const extracted = await extractRegistration(text);
-    const existing = this.store.getEmployee(senderPhone) || {};
-    const partial = session.partial || {};
+    const data = session.data || {};
 
-    const merged = {
-      name: extracted.nombre || partial.name || existing.name || '',
-      area: extracted.area || partial.area || existing.area || '',
-      role: extracted.cargo || partial.role || existing.role || ''
-    };
+    console.log(`   📝 Flujo de registro - Paso: ${session.step}`);
 
-    const missing = [];
-    if (!merged.name) missing.push('nombre');
-    if (!merged.area) missing.push('área (soporte, infraestructura o desarrollo)');
-    if (!merged.role) missing.push('cargo');
+    switch (session.step) {
+      case 'pedir_nombre': {
+        // Extraer nombre del mensaje
+        const nombre = text.trim();
+        
+        if (nombre.length < 2) {
+          return 'No entendí el nombre. ¿Cómo te llamas?';
+        }
 
-    if (missing.length > 0) {
-      this.store.setSession(sessionKey, { ...session, partial: merged });
-      await this.store.save();
-      return `Faltan datos: ${missing.join(', ')}.\nEnvíame esos datos o escribe /cancelar.`;
+        data.nombre = nombre;
+        this.store.setSession(sessionKey, { step: 'pedir_area', data });
+        await this.store.save();
+
+        return getRandomResponse('pedir_area');
+      }
+
+      case 'pedir_area': {
+        const area = this.extractArea(text);
+        
+        if (!area) {
+          return 'No entendí el área. ¿Trabajas en soporte, infraestructura o desarrollo?';
+        }
+
+        data.area = area;
+        this.store.setSession(sessionKey, { step: 'pedir_cargo', data });
+        await this.store.save();
+
+        return getRandomResponse('pedir_cargo');
+      }
+
+      case 'pedir_cargo': {
+        const cargo = text.trim();
+        
+        if (cargo.length < 2) {
+          return 'No entendí el cargo. ¿Cuál es tu cargo o puesto?';
+        }
+
+        data.cargo = cargo;
+
+        // Guardar empleado con teléfono automático
+        this.store.upsertEmployee(senderPhone, {
+          name: data.nombre,
+          area: data.area,
+          role: data.cargo,
+          registeredAt: nowISO()
+        });
+
+        this.store.setSession(sessionKey, null);
+        await this.store.save();
+
+        console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
+
+        // Transición a solicitud
+        const transicion = getRandomResponse('transicion_a_solicitud', { nombre: data.nombre });
+        return transicion;
+      }
+
+      default:
+        this.store.setSession(sessionKey, null);
+        await this.store.save();
+        return 'Algo salió mal. Empecemos de nuevo. ¿Cómo te llamas?';
     }
+  }
 
-    this.store.upsertEmployee(senderPhone, {
-      name: merged.name,
-      area: merged.area,
-      role: merged.role,
-      registeredAt: existing.registeredAt || nowISO()
-    });
-
-    this.store.setSession(sessionKey, null);
-    await this.store.save();
-
-    let response = `✅ Registro completado:\nNombre: ${merged.name}\nÁrea: ${merged.area}\nCargo: ${merged.role}`;
-
-    if (session.pendingRequest) {
-      const natural = await this.processAndRespond({
-        chatId,
-        senderPhone,
-        senderName,
-        text: session.pendingRequest,
-        isGroup: chatId.endsWith('@g.us')
-      });
-      response += `\n\n${natural}`;
-    }
-
-    return response;
+  extractArea(text) {
+    const t = text.toLowerCase();
+    if (t.includes('soporte')) return 'soporte';
+    if (t.includes('infra')) return 'infraestructura';
+    if (t.includes('desarr')) return 'desarrollo';
+    return null;
   }
 
   async executeIntent({ intent, chatId, senderPhone, senderName, text, employee, activeTicket }) {
@@ -532,40 +532,57 @@ class Handler {
     let response = null;
 
     switch (intent.intencion) {
+      case 'saludo': {
+        // Si no está registrado, iniciar flujo de registro
+        if (!employee) {
+          const sessionKey = `reg:${senderPhone}`;
+          this.store.setSession(sessionKey, { step: 'pedir_nombre', data: {} });
+          await this.store.save();
+          
+          response = getRandomResponse('saludo');
+        } else {
+          // Ya está registrado, transición directa
+          response = getRandomResponse('transicion_a_solicitud', { nombre: employee.name });
+        }
+        break;
+      }
+
       case 'crear_ticket': {
         if (!employee) {
-          response = 'Para crear tickets primero regístrate. Envíame: nombre, área y cargo.';
-          break;
-        }
-
-        // Si falta área pero hay descripción, pedir solo área
-        if (intent.falta_area && intent.descripcion && intent.descripcion.length >= 10) {
-          response = '¿A qué área corresponde esto: soporte, infraestructura o desarrollo?';
-          break;
-        }
-
-        // Si hay descripción suficiente, crear ticket
-        if (intent.descripcion && intent.descripcion.length >= 10) {
-          ticket = createTicket({
-            store: this.store,
-            chatId,
-            senderPhone,
-            senderName,
-            classification: {
-              area: intent.area || 'soporte',
-              urgencia: intent.urgencia || 'media',
-              titulo: intent.titulo || text.slice(0, 120),
-              descripcion: intent.descripcion || text
-            },
-            originalText: text
+          // Iniciar flujo de registro
+          const sessionKey = `reg:${senderPhone}`;
+          this.store.setSession(sessionKey, { 
+            step: 'pedir_nombre', 
+            data: {},
+            pendingRequest: text
           });
-
           await this.store.save();
-          console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
-          response = `✅ Ticket #T-${ticket.id} creado. Área: ${ticket.area}. Lo tenemos en seguimiento.`;
-        } else {
-          response = 'Cuéntame más detalles del problema para crear el ticket.';
+          
+          response = getRandomResponse('saludo');
+          break;
         }
+
+        // Si falta área pero hay descripción, crear con área por defecto
+        const area = intent.area || 'soporte';
+        const urgencia = intent.urgencia || 'media';
+
+        ticket = createTicket({
+          store: this.store,
+          chatId,
+          senderPhone,
+          senderName,
+          classification: {
+            area,
+            urgencia,
+            titulo: intent.titulo || text.slice(0, 120),
+            descripcion: intent.descripcion || text
+          },
+          originalText: text
+        });
+
+        await this.store.save();
+        console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
+        response = `✅ Ticket #T-${ticket.id} creado. Área: ${ticket.area}. Urgencia: ${ticket.urgency}. Lo tenemos en seguimiento.`;
         break;
       }
 
@@ -625,16 +642,14 @@ class Handler {
       `🤖 ${config.botName}`,
       '',
       '📝 Comandos:',
-      '/registrarme - Registra tus datos',
-      '/ticket descripción - Crea un ticket',
       '/estado - Ver tus tickets abiertos',
       '/cerrar #T-123 - Cerrar ticket',
       '/help - Ver esta ayuda',
       '',
       '💬 También puedes escribirme naturalmente:',
-      '• "No puedo acceder al correo" → crea ticket',
+      '• "Hola" → te saludo y pido tus datos',
+      '• "No puedo acceder al correo" → crea ticket automáticamente',
       '• "#T-101 sigue fallando" → actualiza ticket',
-      '• "Soy Juan, soporte, analista" → te registra',
       '',
       '🔐 Owner:',
       '/list - Ver todos los tickets',
