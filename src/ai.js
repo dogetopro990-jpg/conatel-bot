@@ -3,6 +3,106 @@ const { normalizeText, parseTicketTag } = require('./utils');
 
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
+// ============ RESPUESTAS VARIADAS ============
+
+const RESPONSES = {
+  saludo: [
+    '¡Hola! Soy el asistente de CONATEL, ¿en qué te puedo ayudar?',
+    'Hola, ¿cómo estás? Dime qué necesitas.',
+    '¡Buenas! Estoy aquí para ayudarte con lo que necesites.',
+    'Hola, cuéntame ¿qué puedo hacer por ti hoy?',
+    '¡Hey! Soy tu asistente de CONATEL, ¿en qué te ayudo?',
+    'Buenos días, ¿en qué puedo colaborarte?',
+    'Hola, estoy aquí para ayudarte. ¿Qué necesitas?',
+    '¡Hola! Cuéntame, ¿en qué te puedo asistir?',
+    'Buenas, ¿cómo te puedo ayudar hoy?'
+  ],
+  agradecimiento: [
+    '¡Con gusto! ¿Necesitas algo más?',
+    'No hay de qué, para eso estamos.',
+    '¡Un placer ayudarte! ¿Algo más en que pueda asistirte?',
+    'Me alegra poder ayudarte. ¿Hay algo más?',
+    '¡Genial! Si necesitas algo más, aquí estoy.',
+    'Con mucho gusto, no dudes en escribirme si necesitas algo.',
+    '¡Con gusto! Para eso estamos aquí.',
+    'No te preocupes, es mi trabajo. ¿Necesitas algo más?'
+  ],
+  despedida: [
+    '¡Hasta luego! Que tengas buen día.',
+    'Nos vemos, cualquier cosa aquí estoy.',
+    '¡Chao! Que te vaya bien.',
+    'Hasta pronto, no dudes en escribirme cuando necesites.',
+    '¡Adiós! Que tengas excelente día.',
+    'Nos vemos, cuídate mucho.',
+    '¡Hasta pronto! Estoy aquí cuando me necesites.',
+    'Chao, que tengas un buen día.'
+  ],
+  registro: [
+    'Para registrarte necesito tu nombre completo, área (soporte, infraestructura o desarrollo) y cargo.',
+    'Claro, para registrarte envíame: nombre, área y cargo en un solo mensaje.',
+    'Perfecto, necesito algunos datos: nombre, área y cargo. ¿Me los puedes dar?',
+    'Para completar tu registro necesito: nombre completo, área y cargo.',
+    'Ok, para registrarte envíame tus datos: nombre, área y cargo.'
+  ],
+  crear_ticket: [
+    'Entiendo, cuéntame más detalles del problema para crear el ticket.',
+    'Ok, necesito más información. ¿Puedes describirme mejor qué está pasando?',
+    'Para crear el ticket necesito más detalles. ¿Qué problema tienes exactamente?',
+    'Claro, pero necesito que me expliques un poco más sobre el problema.',
+    'Entendido, ¿puedes darme más contexto sobre lo que necesitas?',
+    'Ok, cuéntame más sobre el problema para poder ayudarte mejor.'
+  ],
+  ticket_creado: [
+    'Listo, ya creé tu ticket. Te avisaré cuando haya novedades.',
+    'Perfecto, ticket creado. Lo revisaré y te mantendré informado.',
+    '¡Hecho! Tu ticket está registrado, te aviso cuando tenga actualización.',
+    'Ok, ticket creado. Lo tenemos en seguimiento.'
+  ],
+  actualizar_ticket: [
+    'Listo, agregué esa información al ticket.',
+    'Ok, tomé nota y lo agrego al ticket.',
+    'Perfecto, actualicé el ticket con lo que me dices.',
+    'Entendido, lo agrego al ticket para que lo tengan en cuenta.',
+    'Anotado, agrego esa info al ticket.'
+  ],
+  aclaracion: [
+    'Gracias por la aclaración, la agrego al ticket.',
+    'Ok, tomo nota de eso para el ticket.',
+    'Perfecto, eso ayuda a entender mejor el problema.',
+    'Entendido, lo agrego al ticket.',
+    'Gracias por el detalle, lo anoto en el ticket.'
+  ],
+  consulta: [
+    'Déjame revisar eso. ¿Puedes darme más detalles?',
+    'Hmm, necesito un poco más de contexto. ¿Qué exactamente necesitas saber?',
+    'Para ayudarte mejor, ¿puedes explicarme un poco más?',
+    'Ok, cuéntame más sobre lo que necesitas.',
+    'Entiendo, ¿puedes darme más información sobre eso?'
+  ],
+  problema: [
+    'Entiendo que tienes un problema. ¿Puedes describirme qué está pasando?',
+    'Ok, cuéntame más detalles sobre el problema.',
+    'Para ayudarte necesito entender mejor qué está ocurriendo. ¿Qué ves?',
+    'Entiendo, ¿puedes darme más contexto sobre el problema?',
+    'Lamento que tengas ese problema. Cuéntame más detalles para ayudarte.'
+  ],
+  no_entendido: [
+    'No entendí bien. ¿Podrías explicarme qué necesitas?',
+    'No logré entender tu mensaje. ¿Puedes reformularlo?',
+    'Disculpa, no capté bien. ¿Me puedes decir de otra forma qué necesitas?',
+    'Hmm, no entendí. ¿Puedes ser más específico?',
+    'No estoy seguro de entender. ¿Qué necesitas exactamente?',
+    'Perdón, no entendí bien. ¿Puedes explicarme de otra forma?'
+  ]
+};
+
+function getRandomResponse(category) {
+  const responses = RESPONSES[category] || RESPONSES.no_entendido;
+  return responses[Math.floor(Math.random() * responses.length)];
+}
+
+// ============ UTILIDADES ============
+
 function safeArea(value) {
   const area = normalizeText(value || '');
   if (!area) return null;
@@ -32,6 +132,8 @@ function extractJson(text = '') {
   return null;
 }
 
+// ============ GEMINI ============
+
 async function gemini(prompt, { json = true } = {}) {
   if (!config.geminiApiKey) {
     console.log(`   ⚠️  Gemini: sin API key, usando fallback`);
@@ -42,7 +144,7 @@ async function gemini(prompt, { json = true } = {}) {
 
   const body = {
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.4, maxOutputTokens: 1024 }
+    generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
   };
 
   if (json) body.generationConfig.responseMimeType = 'application/json';
@@ -82,7 +184,8 @@ async function gemini(prompt, { json = true } = {}) {
   }
 }
 
-// Fallback sin IA - detecta patrones básicos
+// ============ DETECTAR INTENCIÓN ============
+
 function fallbackDetectIntent(text) {
   const t = normalizeText(text);
   const ticketId = parseTicketTag(text);
@@ -102,7 +205,7 @@ function fallbackDetectIntent(text) {
   }
 
   // Agradecimientos
-  if (/\b(gracias|muchas\s?gracias|te\s?agradezco|grac)\b/.test(t)) {
+  if (/\b(gracias|muchas\s?gracias|te\s?agradezco|grac|thank)\b/.test(t)) {
     return {
       intencion: 'agradecimiento',
       ticket_id: null,
@@ -290,10 +393,13 @@ Reglas:
   return merged;
 }
 
+// ============ GENERAR RESPUESTA ============
+
 async function generateResponse({ intent, employee, activeTicket, userMessage, context = {} }) {
   const prompt = `
-Eres un asistente humano de CONATEL por WhatsApp. Respondes de forma natural, amable y profesional, como una persona real.
-NO uses emojis excesivos. NO suenes robótico. Sé breve y directo.
+Eres un asistente humano de CONATEL por WhatsApp. Respondes de forma natural, amable y profesional.
+
+IMPORTANTE: Varía tus respuestas. NO uses siempre las mismas frases. Sé creativo y natural.
 
 Situación actual:
 - Mensaje del usuario: ${JSON.stringify(userMessage)}
@@ -302,23 +408,19 @@ Situación actual:
 - Ticket activo: ${activeTicket ? `#${activeTicket.id} - ${activeTicket.title} (${activeTicket.area}, ${activeTicket.status})` : 'ninguno'}
 - Área detectada: ${intent.area || 'no definida'}
 - Urgencia detectada: ${intent.urgencia || 'no definida'}
-- Contexto adicional: ${JSON.stringify(context)}
 
-Reglas de respuesta:
-1. Si es SALUDO: saluda de vuelta brevemente y pregunta en qué puedes ayudar.
-2. Si es REGISTRO y faltan datos: pide amablemente los datos faltantes (nombre, área, cargo).
-3. Si es REGISTRO completo: confirma el registro y pregunta si necesita algo más.
-4. Si es CREAR_TICKET sin datos suficientes: pide más detalles del problema.
-5. Si es CREAR_TICKET claro: confirma que se creó el ticket con su número y área.
-6. Si es ACTUALIZAR_TICKET: confirma que se agregó la información al ticket.
-7. Si es ACLARACION: confirma que tomaste nota y la agregarás al ticket.
-8. Si es CONSULTA: responde brevemente o indica que consultarás con el área correspondiente.
-9. Si es AGRADECIMIENTO: responde de forma amable ("con gusto", "para eso estamos").
-10. Si es DESPEDIDA: despídete brevemente.
-11. Si es OTRO: pide amablemente que aclare qué necesita.
+Reglas:
+1. SALUDO: Saluda de forma variada y pregunta cómo puedes ayudar. Ejemplos: "¡Hola! ¿En qué te ayudo?", "Buenas, ¿qué necesitas?", "Hola, cuéntame qué puedo hacer por ti"
+2. REGISTRO: Pide los datos faltantes de forma amable
+3. CREAR_TICKET: Pide más detalles del problema
+4. ACTUALIZAR_TICKET: Confirma que agregaste la información
+5. CONSULTA: Pide más contexto
+6. AGRADECIMIENTO: Responde de forma variada: "Con gusto", "No hay de qué", "Un placer ayudarte"
+7. DESPEDIDA: Despídete de forma variada: "Hasta luego", "Nos vemos", "Chao, cuídate"
+8. OTRO: Pide aclaración de forma amable
 
-NO inventes números de ticket. NO prometas tiempos específicos.
-Responde en máximo 3 líneas. Sin markdown. Sin listas largas.
+NO uses emojis excesivos. NO suenes robótico. Sé breve (máximo 2-3 líneas). Sin markdown.
+Responde de forma DIFERENTE cada vez, no repitas las mismas frases.
 `.trim();
 
   const response = await gemini(prompt, { json: false });
@@ -335,34 +437,37 @@ function fallbackResponse(intent, employee, activeTicket, userMessage) {
 
   switch (intent.intencion) {
     case 'saludo':
-      return 'Hola, soy el asistente de CONATEL. ¿En qué te puedo ayudar hoy?';
+      return getRandomResponse('saludo');
     case 'agradecimiento':
-      return 'Con gusto. ¿Necesitas algo más?';
+      return getRandomResponse('agradecimiento');
     case 'despedida':
-      return 'Hasta luego. Cualquier cosa aquí estoy.';
+      return getRandomResponse('despedida');
     case 'registro':
-      return 'Para registrarte necesito tu nombre, área (soporte, infraestructura o desarrollo) y cargo.';
+      return getRandomResponse('registro');
     case 'crear_ticket':
       if (intent.area) {
-        return `Entiendo, es un tema de ${intent.area}. ¿Puedes darme más detalles del problema?`;
+        return `Entiendo, es un tema de ${intent.area}. ${getRandomResponse('crear_ticket')}`;
       }
-      return 'Cuéntame un poco más sobre el problema para crear el ticket.';
+      return getRandomResponse('crear_ticket');
     case 'actualizar_ticket':
+      return getRandomResponse('actualizar_ticket');
     case 'aclaracion':
-      return 'Listo, tomé nota y lo agrego al ticket.';
+      return getRandomResponse('aclaracion');
     case 'consulta':
-      return 'Déjame revisar eso. ¿Puedes darme más detalles?';
+      return getRandomResponse('consulta');
     default:
       // Respuestas inteligentes por contenido
       if (/\?/.test(userMessage)) {
-        return 'Déjame revisar eso. ¿Puedes darme más detalles?';
+        return getRandomResponse('consulta');
       }
       if (/(no|error|falla|problema)/.test(t)) {
-        return 'Entiendo que tienes un problema. ¿Puedes describirme qué está pasando?';
+        return getRandomResponse('problema');
       }
-      return 'No entendí bien. ¿Podrías explicarme qué necesitas?';
+      return getRandomResponse('no_entendido');
   }
 }
+
+// ============ EXTRAER REGISTRO ============
 
 async function extractRegistration(text) {
   const prompt = `
