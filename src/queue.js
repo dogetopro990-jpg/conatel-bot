@@ -12,15 +12,37 @@ class ResponseQueue {
   enqueue(chatId, buildResponse) {
     const timestamp = new Date().toISOString();
     const chatIdClean = chatId.split('@')[0];
-    
+
     console.log(`\n📋 [${timestamp}]`);
     console.log(`   ENCOLADO → ${chatIdClean}`);
     console.log(`   Posición en cola: ${this.queue.length + 1}`);
-    
+
     return new Promise((resolve, reject) => {
       this.queue.push({ chatId, buildResponse, resolve, reject });
       this.process();
     });
+  }
+
+  // Mantiene el typing activo enviando "composing" cada segundo
+  startTypingLoop(chatId) {
+    let stopped = false;
+
+    const loop = async () => {
+      while (!stopped) {
+        try {
+          await this.sendPresence(chatId, 'composing');
+        } catch (error) {
+          // Ignorar errores de presence
+        }
+        await this.sleep(1000); // Enviar cada 1 segundo
+      }
+    };
+
+    loop();
+
+    return () => {
+      stopped = true;
+    };
   }
 
   async process() {
@@ -37,18 +59,27 @@ class ResponseQueue {
       console.log(`   Delay: ${(delay / 1000).toFixed(1)}s`);
 
       try {
-        // 1. Activar typing
-        await this.sendPresence(task.chatId, 'composing');
+        // 1. Iniciar loop de typing (envía composing cada segundo)
+        console.log(`   📝 TYPING activado (loop cada 1s)`);
+        const stopTyping = this.startTypingLoop(task.chatId);
+
+        // 2. Esperar el delay mientras el typing sigue activo
         await this.sleep(delay);
 
-        // 2. Generar respuesta
+        // 3. Generar respuesta
         console.log(`   🧠 Generando respuesta...`);
         const response = await task.buildResponse();
 
-        // 3. Desactivar typing
-        await this.sendPresence(task.chatId, 'paused');
+        // 4. Detener typing
+        stopTyping();
+        try {
+          await this.sendPresence(task.chatId, 'paused');
+        } catch (error) {
+          // Ignorar
+        }
+        console.log(`   ⏸️  TYPING desactivado`);
 
-        // 4. Enviar respuesta
+        // 5. Enviar respuesta
         if (response && typeof response === 'string' && response.trim()) {
           await this.sendText(task.chatId, response);
         }
@@ -56,11 +87,10 @@ class ResponseQueue {
         task.resolve(response);
       } catch (error) {
         this.logger.error?.({ err: error.message }, 'Error en cola de respuestas');
-        await this.sendPresence(task.chatId, 'paused').catch(() => {});
         task.reject(error);
       }
 
-      // 5. Pequeña pausa entre mensajes
+      // 6. Pequeña pausa entre mensajes
       await this.sleep(500);
     }
 
