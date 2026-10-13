@@ -74,7 +74,6 @@ class Handler {
       this.store.getEmployee(senderPhone)?.name ||
       senderPhone;
 
-    // Log detallado del mensaje recibido
     const timestamp = new Date().toISOString();
     const preview = text.length > 50 ? text.substring(0, 50) + '...' : text;
     const chatIdClean = chatId.split('@')[0];
@@ -87,14 +86,12 @@ class Handler {
     console.log(`   FromMe: ${raw.key.fromMe}`);
     console.log(`   Self-test: ${isSelfTest ? 'SÍ' : 'NO'}`);
 
-    // Si es comando, procesar por ruta de comandos
     if (text.startsWith('/')) {
       console.log(`   📋 Ruta: COMANDO`);
       await this.handleCommand({ chatId, isGroup, senderPhone, senderName, text });
       return;
     }
 
-    // Si es grupo y no hay ticket activo ni tag, ignorar
     if (isGroup) {
       const activeTicketId = this.store.getActiveTicket(`${chatId}:${senderPhone}`);
       if (!parseTicketTag(text) && !activeTicketId) {
@@ -105,7 +102,6 @@ class Handler {
 
     console.log(`   🤖 Ruta: IA CONVERSACIONAL`);
 
-    // Encolar respuesta natural con IA
     this.responseQueue.enqueue(chatId, async () => {
       try {
         return await this.processAndRespond({
@@ -122,8 +118,6 @@ class Handler {
     });
   }
 
-  // ============ RUTA DE COMANDOS ============
-
   async handleCommand({ chatId, senderPhone, senderName, text }) {
     const parts = text.trim().split(/\s+/);
     const cmd = parts[0].toLowerCase();
@@ -134,7 +128,6 @@ class Handler {
     console.log(`   Args: ${args || '(ninguno)'}`);
     console.log(`   Owner: ${isOwner ? 'SÍ' : 'NO'}`);
 
-    // Encolar comandos de usuario para mantener typing consistente
     const runCommand = async () => {
       try {
         return await this.executeCommand({ chatId, senderPhone, senderName, cmd, args, isOwner });
@@ -144,7 +137,6 @@ class Handler {
       }
     };
 
-    // Comandos owner rápidos sin typing
     const fastOwnerCommands = ['/owner'];
     if (fastOwnerCommands.includes(cmd) && isOwner) {
       const response = await runCommand();
@@ -152,7 +144,6 @@ class Handler {
       return;
     }
 
-    // Otros comandos con typing
     this.responseQueue.enqueue(chatId, runCommand);
   }
 
@@ -419,8 +410,6 @@ class Handler {
     return 'Comando owner no reconocido.';
   }
 
-  // ============ RUTA CONVERSACIONAL (IA) ============
-
   async processAndRespond({ chatId, senderPhone, senderName, text, isGroup }) {
     const historyKey = `${chatId}:${senderPhone}`;
     const history = this.getHistory(historyKey);
@@ -429,7 +418,6 @@ class Handler {
     const activeTicketId = this.store.getActiveTicket(historyKey);
     const activeTicket = activeTicketId ? this.store.getTicket(activeTicketId) : null;
 
-    // Si el usuario está en sesión de registro, procesar registro
     const sessionKey = `reg:${senderPhone}`;
     const session = this.store.getSession(sessionKey);
     if (session?.step === 'datos') {
@@ -443,7 +431,6 @@ class Handler {
       return response;
     }
 
-    // Detectar intención con IA
     console.log(`   🧠 Detectando intención con IA...`);
     const intent = await detectIntent(text, {
       employee,
@@ -455,11 +442,11 @@ class Handler {
     console.log(`   Confianza: ${intent.confianza}%`);
     if (intent.area) console.log(`   Área: ${intent.area}`);
     if (intent.urgencia) console.log(`   Urgencia: ${intent.urgencia}`);
+    if (intent.info_completa !== undefined) console.log(`   Info completa: ${intent.info_completa}`);
 
     this.addToHistory(historyKey, 'user', text);
 
-    // Ejecutar lógica de negocio
-    const { ticket } = await this.executeIntent({
+    const { ticket, response } = await this.executeIntent({
       intent,
       chatId,
       senderPhone,
@@ -469,14 +456,20 @@ class Handler {
       activeTicket
     });
 
-    // Generar respuesta natural con IA
+    // Si hay respuesta directa del executeIntent, usarla
+    if (response) {
+      this.addToHistory(historyKey, 'bot', response);
+      return response;
+    }
+
     console.log(`   💬 Generando respuesta natural...`);
     const naturalResponse = await generateResponse({
       intent,
       employee: this.store.getEmployee(senderPhone),
       activeTicket: ticket || activeTicket,
       userMessage: text,
-      context: {}
+      context: {},
+      history
     });
 
     console.log(`   Respuesta: "${naturalResponse.substring(0, 50)}..."`);
@@ -536,38 +529,64 @@ class Handler {
 
   async executeIntent({ intent, chatId, senderPhone, senderName, text, employee, activeTicket }) {
     let ticket = null;
+    let response = null;
 
     switch (intent.intencion) {
       case 'crear_ticket': {
-        if (!employee) break;
-        if (intent.confianza < 50 || !intent.descripcion) break;
+        if (!employee) {
+          response = 'Para crear tickets primero regístrate. Envíame: nombre, área y cargo.';
+          break;
+        }
 
-        ticket = createTicket({
-          store: this.store,
-          chatId,
-          senderPhone,
-          senderName,
-          classification: {
-            area: intent.area || 'soporte',
-            urgencia: intent.urgencia || 'media',
-            titulo: intent.titulo || text.slice(0, 120),
-            descripcion: intent.descripcion || text
-          },
-          originalText: text
-        });
+        // Si falta área pero hay descripción, pedir solo área
+        if (intent.falta_area && intent.descripcion && intent.descripcion.length >= 10) {
+          response = '¿A qué área corresponde esto: soporte, infraestructura o desarrollo?';
+          break;
+        }
 
-        await this.store.save();
-        console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
+        // Si hay descripción suficiente, crear ticket
+        if (intent.descripcion && intent.descripcion.length >= 10) {
+          ticket = createTicket({
+            store: this.store,
+            chatId,
+            senderPhone,
+            senderName,
+            classification: {
+              area: intent.area || 'soporte',
+              urgencia: intent.urgencia || 'media',
+              titulo: intent.titulo || text.slice(0, 120),
+              descripcion: intent.descripcion || text
+            },
+            originalText: text
+          });
+
+          await this.store.save();
+          console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
+          response = `✅ Ticket #T-${ticket.id} creado. Área: ${ticket.area}. Lo tenemos en seguimiento.`;
+        } else {
+          response = 'Cuéntame más detalles del problema para crear el ticket.';
+        }
         break;
       }
 
       case 'actualizar_ticket':
       case 'aclaracion': {
         const targetId = intent.ticket_id || (activeTicket ? activeTicket.id : null);
-        if (!targetId) break;
+        if (!targetId) {
+          response = 'No encontré el ticket. ¿Puedes indicarme el número del ticket?';
+          break;
+        }
 
         ticket = this.store.getTicket(targetId);
-        if (!ticket || ticket.status === 'cerrada') break;
+        if (!ticket) {
+          response = `No encontré el ticket #T-${targetId}.`;
+          break;
+        }
+
+        if (ticket.status === 'cerrada') {
+          response = `El ticket #T-${ticket.id} está cerrado. Para otro tema, describe el problema.`;
+          break;
+        }
 
         appendUpdate({
           store: this.store,
@@ -586,6 +605,7 @@ class Handler {
 
         await this.store.save();
         console.log(`   📝 Ticket actualizado: #T-${ticket.id}`);
+        response = `✅ Información agregada al ticket #T-${ticket.id}.`;
         break;
       }
 
@@ -593,10 +613,8 @@ class Handler {
         break;
     }
 
-    return { ticket };
+    return { ticket, response };
   }
-
-  // ============ UTILIDADES ============
 
   formatTicketLine(ticket) {
     return `${ticketTag(ticket.id)} [${ticket.priorityLevel || 'media'} ${ticket.score ?? 0}/100] ${ticket.area} - ${truncate(ticket.title, 70)}`;

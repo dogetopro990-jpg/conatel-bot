@@ -52,6 +52,11 @@ const RESPONSES = {
     'Entendido, ¿puedes darme más contexto sobre lo que necesitas?',
     'Ok, cuéntame más sobre el problema para poder ayudarte mejor.'
   ],
+  pedir_area: [
+    '¿A qué área corresponde esto: soporte, infraestructura o desarrollo?',
+    'Necesito saber el área: ¿es de soporte, infraestructura o desarrollo?',
+    'Para clasificar mejor, ¿esto es de soporte, infraestructura o desarrollo?'
+  ],
   ticket_creado: [
     'Listo, ya creé tu ticket. Te avisaré cuando haya novedades.',
     'Perfecto, ticket creado. Lo revisaré y te mantendré informado.',
@@ -93,6 +98,14 @@ const RESPONSES = {
     'Hmm, no entendí. ¿Puedes ser más específico?',
     'No estoy seguro de entender. ¿Qué necesitas exactamente?',
     'Perdón, no entendí bien. ¿Puedes explicarme de otra forma?'
+  ],
+  seguimiento: [
+    'Ah entiendo mejor. ¿Puedes contarme más sobre eso?',
+    'Ok, voy entendiendo. Cuéntame más detalles.',
+    'Gracias por la información. ¿Hay algo más que deba saber?',
+    'Entendido. ¿Cuándo empezó este problema?',
+    'Ok, ¿esto afecta a más personas o solo a ti?',
+    'Gracias. ¿Has intentado alguna solución antes?'
   ]
 };
 
@@ -132,13 +145,25 @@ function extractJson(text = '') {
   return null;
 }
 
-// ============ GEMINI ============
+// ============ GEMINI CON RATE LIMIT ============
+
+let lastGeminiCall = 0;
+const GEMINI_MIN_INTERVAL = 3000;
 
 async function gemini(prompt, { json = true } = {}) {
   if (!config.geminiApiKey) {
     console.log(`   ⚠️  Gemini: sin API key, usando fallback`);
     return null;
   }
+
+  const now = Date.now();
+  const timeSinceLastCall = now - lastGeminiCall;
+  if (timeSinceLastCall < GEMINI_MIN_INTERVAL) {
+    console.log(`   ⏳ Gemini: esperando ${GEMINI_MIN_INTERVAL - timeSinceLastCall}ms (rate limit)`);
+    await new Promise(resolve => setTimeout(resolve, GEMINI_MIN_INTERVAL - timeSinceLastCall));
+  }
+
+  lastGeminiCall = Date.now();
 
   const url = `${API_BASE}/${config.geminiModel}:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
 
@@ -184,14 +209,29 @@ async function gemini(prompt, { json = true } = {}) {
   }
 }
 
-// ============ DETECTAR INTENCIÓN ============
+// ============ DETECTAR INTENCIÓN AVANZADO ============
 
-function fallbackDetectIntent(text) {
+function fallbackDetectIntent(text, context = {}) {
   const t = normalizeText(text);
   const ticketId = parseTicketTag(text);
 
+  // Si hay ticket activo y el mensaje es corto, es continuación
+  if (context.activeTicket && t.length < 100 && !ticketId) {
+    return {
+      intencion: 'aclaracion',
+      ticket_id: context.activeTicket.id,
+      area: null,
+      urgencia: null,
+      titulo: null,
+      descripcion: text,
+      datos_registro: { nombre: null, area: null, cargo: null },
+      confianza: 75,
+      info_completa: true
+    };
+  }
+
   // Saludos
-  if (/^(hola|buenos\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/.test(t)) {
+  if (/^(hola|buenos?\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/.test(t)) {
     return {
       intencion: 'saludo',
       ticket_id: null,
@@ -200,12 +240,13 @@ function fallbackDetectIntent(text) {
       titulo: null,
       descripcion: null,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 90
+      confianza: 90,
+      info_completa: false
     };
   }
 
   // Agradecimientos
-  if (/\b(gracias|muchas\s?gracias|te\s?agradezco|grac|thank)\b/.test(t)) {
+  if (/\b(gracias|muchas?\s?gracias|te\s?agradezco|grac|thank)\b/.test(t)) {
     return {
       intencion: 'agradecimiento',
       ticket_id: null,
@@ -214,12 +255,13 @@ function fallbackDetectIntent(text) {
       titulo: null,
       descripcion: null,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 90
+      confianza: 90,
+      info_completa: false
     };
   }
 
   // Despedidas
-  if (/\b(adios|chao|hasta\s?luego|nos\s?vemos|bye|hasta\s?pronto)\b/.test(t)) {
+  if (/\b(adios|chao|hasta\s?(luego|pronto)|nos\s?vemos|bye)\b/.test(t)) {
     return {
       intencion: 'despedida',
       ticket_id: null,
@@ -228,7 +270,8 @@ function fallbackDetectIntent(text) {
       titulo: null,
       descripcion: null,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 90
+      confianza: 90,
+      info_completa: false
     };
   }
 
@@ -240,32 +283,37 @@ function fallbackDetectIntent(text) {
       area: null,
       urgencia: null,
       titulo: null,
-      descripcion: t,
+      descripcion: text,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 85
+      confianza: 85,
+      info_completa: true
     };
+  }
+
+  // Detectar área
+  let area = null;
+  if (/(infraestructura|red|internet|wifi|servidor|cable|switch|router|vpn)/.test(t)) {
+    area = 'infraestructura';
+  } else if (/(desarrollo|software|sistema|bug|api|base\s?de\s?datos|codigo|aplicacion)/.test(t)) {
+    area = 'desarrollo';
+  } else if (/(soporte|correo|contrasena|acceso|office|excel|word|impresora)/.test(t)) {
+    area = 'soporte';
+  }
+
+  // Detectar urgencia
+  let urgencia = 'media';
+  if (/(urgente|critico|caida|produccion|no\s?funciona\s?nada|bloquea|emergencia)/.test(t)) {
+    urgencia = 'critica';
+  } else if (/(importante|hoy|pronto|afecta|prioridad)/.test(t)) {
+    urgencia = 'alta';
+  } else if (/(consulta|duda|cuando|como|informacion)/.test(t)) {
+    urgencia = 'baja';
   }
 
   // Problemas/solicitudes → crear ticket
   const problemKeywords = /(no\s?(puedo|funciona|hay|entra)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo))/;
+  
   if (problemKeywords.test(t) && t.length >= 10) {
-    let area = 'soporte';
-    let urgencia = 'media';
-
-    if (/(infraestructura|red|internet|wifi|servidor|cable|switch|router|vpn)/.test(t)) {
-      area = 'infraestructura';
-    } else if (/(desarrollo|software|sistema|bug|api|base\s?de\s?datos|codigo|aplicacion)/.test(t)) {
-      area = 'desarrollo';
-    }
-
-    if (/(urgente|critico|caida|produccion|no\s?funciona\s?nada|bloquea)/.test(t)) {
-      urgencia = 'critica';
-    } else if (/(importante|hoy|pronto|afecta)/.test(t)) {
-      urgencia = 'alta';
-    } else if (/(consulta|duda|cuando|como)/.test(t)) {
-      urgencia = 'baja';
-    }
-
     return {
       intencion: 'crear_ticket',
       ticket_id: null,
@@ -274,7 +322,9 @@ function fallbackDetectIntent(text) {
       titulo: text.slice(0, 120),
       descripcion: text,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 70
+      confianza: 80,
+      info_completa: true,
+      falta_area: !area
     };
   }
 
@@ -288,12 +338,13 @@ function fallbackDetectIntent(text) {
       titulo: null,
       descripcion: null,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 65
+      confianza: 65,
+      info_completa: false
     };
   }
 
-  // Mensaje muy corto sin patrón claro → probablemente saludo o consulta
-  if (t.length < 20) {
+  // Preguntas sobre detalles/información
+  if (/(que\s?(detalles|informacion|necesitas|quieres|puedo)|cuentame|explicame|describe)/.test(t)) {
     return {
       intencion: 'consulta',
       ticket_id: null,
@@ -302,7 +353,23 @@ function fallbackDetectIntent(text) {
       titulo: null,
       descripcion: text,
       datos_registro: { nombre: null, area: null, cargo: null },
-      confianza: 40
+      confianza: 60,
+      info_completa: false
+    };
+  }
+
+  // Mensaje muy corto sin patrón claro
+  if (t.length < 30) {
+    return {
+      intencion: 'consulta',
+      ticket_id: null,
+      area: null,
+      urgencia: null,
+      titulo: null,
+      descripcion: text,
+      datos_registro: { nombre: null, area: null, cargo: null },
+      confianza: 40,
+      info_completa: false
     };
   }
 
@@ -314,11 +381,19 @@ function fallbackDetectIntent(text) {
     titulo: null,
     descripcion: text,
     datos_registro: { nombre: null, area: null, cargo: null },
-    confianza: 20
+    confianza: 20,
+    info_completa: false
   };
 }
 
 async function detectIntent(text, { employee, activeTicket, history = [] }) {
+  const quickFallback = fallbackDetectIntent(text, { activeTicket });
+  
+  if (quickFallback.confianza >= 70) {
+    console.log(`   ✅ Fallback confiable (${quickFallback.confianza}%), sin IA`);
+    return quickFallback;
+  }
+
   const historyText = history
     .slice(-6)
     .map((m) => `${m.from === 'bot' ? 'Bot' : 'Usuario'}: ${m.text}`)
@@ -345,41 +420,40 @@ Devuelve este JSON:
   "titulo": "string|null",
   "descripcion": "string|null",
   "datos_registro": { "nombre": null, "area": null, "cargo": null },
-  "confianza": 0
+  "confianza": 0,
+  "info_completa": true
 }
 
 Reglas:
-1. Si el usuario saluda (hola, buenos dias, hey), intencion = saludo
+1. Si el usuario saluda, intencion = saludo
 2. Si dice gracias, intencion = agradecimiento
 3. Si dice adios/chao, intencion = despedida
-4. Si menciona #T-123, intencion = actualizar_ticket y ticket_id = 123
-5. Si hay ticket activo y el mensaje es corto o parece continuación, intencion = aclaracion o actualizar_ticket
-6. Si describe un problema/solicitud nueva, intencion = crear_ticket
-7. Si da sus datos (nombre, area, cargo), intencion = registro
-8. Si pregunta algo general, intencion = consulta
-9. area: soporte (correos, accesos, office), infraestructura (red, servidores, internet), desarrollo (software, bugs, sistemas)
-10. urgencia: critica (caída total, producción), alta (afecta operación), media (normal), baja (consulta)
-11. confianza: 0-100 según qué tan claro es el mensaje
+4. Si menciona #T-123, intencion = actualizar_ticket
+5. Si hay ticket activo y el mensaje es corto, intencion = aclaracion
+6. Si describe un problema, intencion = crear_ticket y info_completa = true
+7. Si da sus datos, intencion = registro
+8. Si pregunta algo, intencion = consulta
+9. area: soporte, infraestructura, desarrollo
+10. urgencia: critica, alta, media, baja
+11. confianza: 0-100
+12. info_completa: true si hay suficiente información para crear ticket, false si falta algo
 `.trim();
 
   const ai = await gemini(prompt, { json: true });
 
-  // Si Gemini falla, usar fallback robusto
   if (!ai) {
     console.log(`   🔄 Usando fallback sin IA`);
-    return fallbackDetectIntent(text);
+    return quickFallback;
   }
 
-  const fallback = fallbackDetectIntent(text);
-  const merged = { ...fallback, ...ai };
+  const merged = { ...quickFallback, ...ai };
 
-  // Priorizar IA si tiene alta confianza, sino usar fallback
   const aiConfidence = Number(ai.confianza) || 0;
-  const fallbackConfidence = fallback.confianza;
+  const fallbackConfidence = quickFallback.confianza;
 
   if (aiConfidence < 50 && fallbackConfidence > 60) {
     console.log(`   🔄 IA poco confiable (${aiConfidence}%), usando fallback (${fallbackConfidence}%)`);
-    return fallback;
+    return quickFallback;
   }
 
   if (!merged.ticket_id) merged.ticket_id = parseTicketTag(text);
@@ -393,13 +467,18 @@ Reglas:
   return merged;
 }
 
-// ============ GENERAR RESPUESTA ============
+// ============ GENERAR RESPUESTA CON CONTEXTO ============
 
-async function generateResponse({ intent, employee, activeTicket, userMessage, context = {} }) {
+async function generateResponse({ intent, employee, activeTicket, userMessage, context = {}, history = [] }) {
+  const quickResponse = fallbackResponse(intent, employee, activeTicket, userMessage, history);
+  
+  if (['saludo', 'agradecimiento', 'despedida', 'actualizar_ticket', 'aclaracion'].includes(intent.intencion)) {
+    console.log(`   ✅ Respuesta rápida sin IA`);
+    return quickResponse;
+  }
+
   const prompt = `
 Eres un asistente humano de CONATEL por WhatsApp. Respondes de forma natural, amable y profesional.
-
-IMPORTANTE: Varía tus respuestas. NO uses siempre las mismas frases. Sé creativo y natural.
 
 Situación actual:
 - Mensaje del usuario: ${JSON.stringify(userMessage)}
@@ -410,17 +489,16 @@ Situación actual:
 - Urgencia detectada: ${intent.urgencia || 'no definida'}
 
 Reglas:
-1. SALUDO: Saluda de forma variada y pregunta cómo puedes ayudar. Ejemplos: "¡Hola! ¿En qué te ayudo?", "Buenas, ¿qué necesitas?", "Hola, cuéntame qué puedo hacer por ti"
-2. REGISTRO: Pide los datos faltantes de forma amable
-3. CREAR_TICKET: Pide más detalles del problema
+1. SALUDO: Saluda de forma variada
+2. REGISTRO: Pide los datos faltantes
+3. CREAR_TICKET: Si falta área, pregunta solo por el área. Si falta descripción, pide descripción. Si todo está, confirma creación
 4. ACTUALIZAR_TICKET: Confirma que agregaste la información
-5. CONSULTA: Pide más contexto
-6. AGRADECIMIENTO: Responde de forma variada: "Con gusto", "No hay de qué", "Un placer ayudarte"
-7. DESPEDIDA: Despídete de forma variada: "Hasta luego", "Nos vemos", "Chao, cuídate"
-8. OTRO: Pide aclaración de forma amable
+5. CONSULTA: Pide más contexto o responde
+6. AGRADECIMIENTO: Responde de forma variada
+7. DESPEDIDA: Despídete de forma variada
+8. OTRO: Pide aclaración
 
-NO uses emojis excesivos. NO suenes robótico. Sé breve (máximo 2-3 líneas). Sin markdown.
-Responde de forma DIFERENTE cada vez, no repitas las mismas frases.
+NO uses emojis excesivos. Sé breve (máximo 2-3 líneas). Sin markdown.
 `.trim();
 
   const response = await gemini(prompt, { json: false });
@@ -429,11 +507,15 @@ Responde de forma DIFERENTE cada vez, no repitas las mismas frases.
     return response.trim().replace(/^["']|["']$/g, '');
   }
 
-  return fallbackResponse(intent, employee, activeTicket, userMessage);
+  return quickResponse;
 }
 
-function fallbackResponse(intent, employee, activeTicket, userMessage) {
+function fallbackResponse(intent, employee, activeTicket, userMessage, history = []) {
   const t = normalizeText(userMessage || '');
+
+  if (history.length > 0 && t.length < 50 && intent.intencion === 'consulta') {
+    return getRandomResponse('seguimiento');
+  }
 
   switch (intent.intencion) {
     case 'saludo':
@@ -445,8 +527,11 @@ function fallbackResponse(intent, employee, activeTicket, userMessage) {
     case 'registro':
       return getRandomResponse('registro');
     case 'crear_ticket':
+      if (intent.falta_area) {
+        return getRandomResponse('pedir_area');
+      }
       if (intent.area) {
-        return `Entiendo, es un tema de ${intent.area}. ${getRandomResponse('crear_ticket')}`;
+        return `Entiendo, es un tema de ${intent.area}. Voy a crear el ticket.`;
       }
       return getRandomResponse('crear_ticket');
     case 'actualizar_ticket':
@@ -456,7 +541,6 @@ function fallbackResponse(intent, employee, activeTicket, userMessage) {
     case 'consulta':
       return getRandomResponse('consulta');
     default:
-      // Respuestas inteligentes por contenido
       if (/\?/.test(userMessage)) {
         return getRandomResponse('consulta');
       }
@@ -466,8 +550,6 @@ function fallbackResponse(intent, employee, activeTicket, userMessage) {
       return getRandomResponse('no_entendido');
   }
 }
-
-// ============ EXTRAER REGISTRO ============
 
 async function extractRegistration(text) {
   const prompt = `
@@ -487,7 +569,6 @@ Texto: ${JSON.stringify(String(text))}
   const ai = await gemini(prompt, { json: true });
 
   if (!ai) {
-    // Fallback simple
     const t = normalizeText(text);
     const area = safeArea(t);
     return { nombre: null, area, cargo: null };
