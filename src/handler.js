@@ -26,8 +26,8 @@ class Handler {
     );
   }
 
-  async handleMessage(raw) {
-    if (!raw?.key || raw.key.fromMe) return;
+     async handleMessage(raw, botPhoneNumber) {
+    if (!raw?.key) return;
 
     const chatId = raw.key.remoteJid;
     if (!chatId || chatId === 'status@broadcast') return;
@@ -38,7 +38,32 @@ class Handler {
 
     if (!senderPhone) return;
 
-    const text = this.extractText(raw).trim();
+    const rawText = this.extractText(raw).trim();
+    if (!rawText) return;
+
+    const isFromBot = raw.key.fromMe || senderPhone === botPhoneNumber;
+
+    if (isFromBot && !config.selfTest) return;
+
+    const startsTicketTag = /^#t[-\s]?\d+/i.test(rawText);
+
+    const isSelfTest =
+      config.selfTest &&
+      isFromBot &&
+      config.isOwner(senderPhone) &&
+      (
+        rawText.startsWith('/') ||
+        rawText.startsWith(config.selfTestPrefix) ||
+        startsTicketTag
+      );
+
+    if (isFromBot && !isSelfTest) return;
+
+    const text =
+      isSelfTest && rawText.startsWith(config.selfTestPrefix)
+        ? rawText.slice(config.selfTestPrefix.length).trim()
+        : rawText;
+
     if (!text) return;
 
     const senderName =
@@ -73,7 +98,7 @@ class Handler {
 
     const activeTicketId = this.store.getActiveTicket(`${chatId}:${senderPhone}`);
 
-    if (isGroup && !parseTicketTag(text) && !activeTicketId) {
+    if (isGroup && !isSelfTest && !parseTicketTag(text) && !activeTicketId) {
       return;
     }
 

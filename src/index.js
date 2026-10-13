@@ -20,6 +20,8 @@ const baileysLogger = pino({
 
 let sock = null;
 let alertsStarted = false;
+let reconnecting = false;
+let botPhoneNumber = null;
 
 const queue = new MessageQueue({
   minDelay: config.minDelayMs,
@@ -63,7 +65,8 @@ async function start() {
       auth: state,
       logger: baileysLogger,
       printQRInTerminal: false,
-      markOnlineOnConnect: false
+      markOnlineOnConnect: false,
+      shouldIgnoreJid: (jid) => false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -76,15 +79,21 @@ async function start() {
       }
 
       if (connection === 'open') {
-        logger.info('Bot conectado a WhatsApp');
+        botPhoneNumber = sock.user?.id?.split(':')[0]?.split('@')[0];
+        logger.info({ bot: botPhoneNumber }, 'Bot conectado a WhatsApp');
       }
 
       if (connection === 'close') {
         const code = lastDisconnect?.error?.output?.statusCode;
 
-        if (code !== DisconnectReason.loggedOut) {
-          setTimeout(connect, 4000);
-        } else {
+        if (code !== DisconnectReason.loggedOut && !reconnecting) {
+          reconnecting = true;
+
+          setTimeout(async () => {
+            reconnecting = false;
+            await connect();
+          }, 4000);
+        } else if (code === DisconnectReason.loggedOut) {
           logger.warn('Sesión cerrada. Borra auth_info y vuelve a escanear QR.');
         }
       }
@@ -95,7 +104,7 @@ async function start() {
 
       for (const message of messages) {
         try {
-          await handler.handleMessage(message);
+          await handler.handleMessage(message, botPhoneNumber);
         } catch (error) {
           logger.error({ err: error.message }, 'Error procesando mensaje');
         }
