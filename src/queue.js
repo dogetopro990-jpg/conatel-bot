@@ -45,7 +45,7 @@ class ResponseQueue {
     };
   }
 
-  async process() {
+    async process() {
     if (this.processing) return;
     this.processing = true;
 
@@ -59,18 +59,17 @@ class ResponseQueue {
       console.log(`   Delay: ${(delay / 1000).toFixed(1)}s`);
 
       try {
-        // 1. Iniciar loop de typing (envía composing cada segundo)
-        console.log(`   📝 TYPING activado (loop cada 1s)`);
+        // 1. Iniciar typing Y generar respuesta en paralelo
+        console.log(`   📝 TYPING activado + 🧠 IA procesando...`);
         const stopTyping = this.startTypingLoop(task.chatId);
 
-        // 2. Esperar el delay mientras el typing sigue activo
-        await this.sleep(delay);
+        // Ejecutar IA mientras transcurre el delay
+        const [response] = await Promise.all([
+          task.buildResponse(),           // IA procesando
+          this.sleep(delay)               // Delay de typing
+        ]);
 
-        // 3. Generar respuesta
-        console.log(`   🧠 Generando respuesta...`);
-        const response = await task.buildResponse();
-
-        // 4. Detener typing
+        // 2. Detener typing
         stopTyping();
         try {
           await this.sendPresence(task.chatId, 'paused');
@@ -79,7 +78,7 @@ class ResponseQueue {
         }
         console.log(`   ⏸️  TYPING desactivado`);
 
-        // 5. Enviar respuesta
+        // 3. Enviar respuesta
         if (response && typeof response === 'string' && response.trim()) {
           await this.sendText(task.chatId, response);
         }
@@ -90,8 +89,8 @@ class ResponseQueue {
         task.reject(error);
       }
 
-      // 6. Pequeña pausa entre mensajes
-      await this.sleep(500);
+      // 4. Pequeña pausa entre mensajes
+      await this.sleep(300);
     }
 
     this.processing = false;
