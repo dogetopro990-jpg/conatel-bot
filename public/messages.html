@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Mensajes - CONATEL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
+      <h1 class="text-lg font-bold">CONATEL Panel</h1>
+    </div>
+    <div class="flex gap-2 text-sm">
+      <a href="index.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
+      <a href="tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
+      <a href="employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
+      <a href="messages.html" class="px-3 py-1.5 bg-blue-600 rounded">Mensajes</a>
+      <a href="settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto p-6">
+    <h2 class="text-2xl font-bold mb-6">Enviar mensajes</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-slate-800 rounded-lg p-6">
+        <h3 class="font-bold mb-4">Mensaje individual</h3>
+        <form id="individualForm" class="space-y-3">
+          <div>
+            <label class="text-sm text-slate-400">Destinatario (teléfono)</label>
+            <input id="iTo" required placeholder="59170000000" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
+          </div>
+          <div>
+            <label class="text-sm text-slate-400">Mensaje</label>
+            <textarea id="iText" required rows="4" class="w-full bg-slate-700 px-3 py-2 rounded mt-1"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Enviar</button>
+          <div id="iResult" class="text-sm"></div>
+        </form>
+      </div>
+
+      <div class="bg-slate-800 rounded-lg p-6">
+        <h3 class="font-bold mb-4">Mensaje a área</h3>
+        <form id="areaForm" class="space-y-3">
+          <div>
+            <label class="text-sm text-slate-400">Área</label>
+            <select id="aArea" class="w-full bg-slate-700 px-3 py-2 rounded mt-1">
+              <option value="">Todos los empleados</option>
+              <option value="soporte">Soporte</option>
+              <option value="infraestructura">Infraestructura</option>
+              <option value="desarrollo">Desarrollo</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm text-slate-400">Mensaje</label>
+            <textarea id="aText" required rows="4" class="w-full bg-slate-700 px-3 py-2 rounded mt-1"></textarea>
+          </div>
+          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Enviar a todos</button>
+          <div id="aResult" class="text-sm"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="bg-slate-800 rounded-lg p-6 mt-6">
+      <h3 class="font-bold mb-4">Empleados por área</h3>
+      <div id="areaList" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    </div>
+  </main>
+
+  <script>
+    async function loadEmployees() {
+      const res = await fetch('/api/employees');
+      const employees = await res.json();
+
+      const byArea = { soporte: [], infraestructura: [], desarrollo: [] };
+      employees.forEach((e) => {
+        if (byArea[e.area]) byArea[e.area].push(e);
+      });
+
+      document.getElementById('areaList').innerHTML = Object.entries(byArea)
+        .map(
+          ([area, list]) => `
+          <div class="bg-slate-900 p-4 rounded">
+            <h4 class="font-bold capitalize mb-2">${area} (${list.length})</h4>
+            ${
+              list.length
+                ? list
+                    .map(
+                      (e) => `
+                <div class="text-sm py-1 border-b border-slate-700 last:border-0">
+                  <div>${e.name}</div>
+                  <div class="text-xs text-slate-400">${e.phone} • ${e.role}</div>
+                </div>
+              `
+                    )
+                    .join('')
+                : '<div class="text-sm text-slate-400">Sin empleados</div>'
+            }
+          </div>
+        `
+        )
+        .join('');
+    }
+
+    document.getElementById('individualForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const to = document.getElementById('iTo').value;
+      const text = document.getElementById('iText').value;
+
+      const res = await fetch('/api/messages/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to, text })
+      });
+      const data = await res.json();
+
+      document.getElementById('iResult').innerHTML = data.ok
+        ? '<span class="text-green-400">✓ Mensaje enviado</span>'
+        : `<span class="text-red-400">✗ Error: ${data.error}</span>`;
+
+      if (data.ok) {
+        document.getElementById('iText').value = '';
+      }
+    });
+
+    document.getElementById('areaForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const area = document.getElementById('aArea').value;
+      const text = document.getElementById('aText').value;
+
+      const res = await fetch('/api/messages/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ area: area || undefined, text })
+      });
+      const data = await res.json();
+
+      document.getElementById('aResult').innerHTML = `<span class="text-green-400">✓ Enviado a ${data.sent}/${data.total}</span>`;
+
+      if (data.sent > 0) {
+        document.getElementById('aText').value = '';
+      }
+    });
+
+    loadEmployees();
+    setInterval(loadEmployees, 10000);
+  </script>
+</body>
+</html>

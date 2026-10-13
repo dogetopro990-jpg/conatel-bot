@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Empleados - CONATEL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
+      <h1 class="text-lg font-bold">CONATEL Panel</h1>
+    </div>
+    <div class="flex gap-2 text-sm">
+      <a href="index.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
+      <a href="tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
+      <a href="employees.html" class="px-3 py-1.5 bg-blue-600 rounded">Empleados</a>
+      <a href="messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
+      <a href="settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold">Empleados encargados</h2>
+      <button onclick="openForm()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">+ Nuevo empleado</button>
+    </div>
+
+    <div class="bg-slate-800 rounded-lg overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-slate-700 text-left">
+          <tr>
+            <th class="p-3">Nombre</th>
+            <th class="p-3">Teléfono</th>
+            <th class="p-3">Área</th>
+            <th class="p-3">Cargo</th>
+            <th class="p-3">Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="employees"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold" id="modalTitle">Nuevo empleado</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
+      </div>
+      <form id="employeeForm" class="space-y-3">
+        <input type="hidden" id="editPhone" />
+        <div>
+          <label class="text-sm text-slate-400">Nombre completo</label>
+          <input id="fName" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
+        </div>
+        <div>
+          <label class="text-sm text-slate-400">Teléfono (con código país, sin +)</label>
+          <input id="fPhone" required placeholder="59170000000" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
+        </div>
+        <div>
+          <label class="text-sm text-slate-400">Área</label>
+          <select id="fArea" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1">
+            <option value="soporte">Soporte</option>
+            <option value="infraestructura">Infraestructura</option>
+            <option value="desarrollo">Desarrollo</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm text-slate-400">Cargo</label>
+          <input id="fRole" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
+        </div>
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Guardar</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    async function load() {
+      const res = await fetch('/api/employees');
+      const employees = await res.json();
+
+      document.getElementById('employees').innerHTML = employees.length
+        ? employees
+            .map(
+              (e) => `
+          <tr class="border-t border-slate-700 hover:bg-slate-700/50">
+            <td class="p-3">${e.name}</td>
+            <td class="p-3 font-mono">${e.phone}</td>
+            <td class="p-3 capitalize">${e.area}</td>
+            <td class="p-3">${e.role}</td>
+            <td class="p-3 space-x-2">
+              <button onclick='editEmployee(${JSON.stringify(e)})' class="text-blue-400 hover:underline text-xs">Editar</button>
+              <button onclick="deleteEmployee('${e.phone}')" class="text-red-400 hover:underline text-xs">Eliminar</button>
+            </td>
+          </tr>
+        `
+            )
+            .join('')
+        : '<tr><td colspan="5" class="p-6 text-center text-slate-400">No hay empleados registrados</td></tr>';
+    }
+
+    function openForm() {
+      document.getElementById('modalTitle').textContent = 'Nuevo empleado';
+      document.getElementById('editPhone').value = '';
+      document.getElementById('employeeForm').reset();
+      document.getElementById('fPhone').disabled = false;
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    function editEmployee(e) {
+      document.getElementById('modalTitle').textContent = 'Editar empleado';
+      document.getElementById('editPhone').value = e.phone;
+      document.getElementById('fName').value = e.name;
+      document.getElementById('fPhone').value = e.phone;
+      document.getElementById('fPhone').disabled = true;
+      document.getElementById('fArea').value = e.area;
+      document.getElementById('fRole').value = e.role;
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    async function deleteEmployee(phone) {
+      if (!confirm('¿Eliminar empleado?')) return;
+      await fetch(`/api/employees/${phone}`, { method: 'DELETE' });
+      load();
+    }
+
+    document.getElementById('employeeForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editPhone = document.getElementById('editPhone').value;
+      const data = {
+        name: document.getElementById('fName').value,
+        phone: document.getElementById('fPhone').value,
+        area: document.getElementById('fArea').value,
+        role: document.getElementById('fRole').value
+      };
+
+      if (editPhone) {
+        await fetch(`/api/employees/${editPhone}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      } else {
+        await fetch('/api/employees', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+      }
+
+      closeModal();
+      load();
+    });
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+    }
+
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>

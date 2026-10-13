@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CONATEL - Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
+      <div>
+        <h1 class="text-lg font-bold">CONATEL Panel</h1>
+        <p class="text-xs text-slate-400">Sistema de tickets y solicitudes</p>
+      </div>
+    </div>
+    <div class="flex gap-2 text-sm">
+      <a href="index.html" class="px-3 py-1.5 bg-blue-600 rounded">Dashboard</a>
+      <a href="tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
+      <a href="employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
+      <a href="messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
+      <a href="settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto p-6">
+    <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="stats"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="bg-slate-800 rounded-lg p-6">
+        <h3 class="font-bold mb-4">Tickets por área</h3>
+        <div id="byArea" class="space-y-2"></div>
+      </div>
+      <div class="bg-slate-800 rounded-lg p-6">
+        <h3 class="font-bold mb-4">Tickets por prioridad</h3>
+        <div id="byPriority" class="space-y-2"></div>
+      </div>
+    </div>
+
+    <div class="bg-slate-800 rounded-lg p-6 mt-6">
+      <h3 class="font-bold mb-4">Top 5 tickets prioritarios</h3>
+      <div id="topTickets"></div>
+    </div>
+  </main>
+
+  <script>
+    const priorityColor = {
+      critica: 'bg-red-500',
+      alta: 'bg-orange-500',
+      media: 'bg-yellow-500',
+      baja: 'bg-green-500'
+    };
+
+    async function load() {
+      const res = await fetch('/api/stats');
+      const data = await res.json();
+
+      document.getElementById('stats').innerHTML = `
+        <div class="bg-slate-800 p-4 rounded-lg">
+          <div class="text-slate-400 text-sm">Total tickets</div>
+          <div class="text-3xl font-bold">${data.total}</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg">
+          <div class="text-slate-400 text-sm">Abiertos</div>
+          <div class="text-3xl font-bold text-blue-400">${data.open}</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg">
+          <div class="text-slate-400 text-sm">Cerrados</div>
+          <div class="text-3xl font-bold text-green-400">${data.closed}</div>
+        </div>
+        <div class="bg-slate-800 p-4 rounded-lg">
+          <div class="text-slate-400 text-sm">Empleados</div>
+          <div class="text-3xl font-bold text-purple-400">${data.employees}</div>
+        </div>
+      `;
+
+      const areaTotal = Object.values(data.byArea).reduce((a, b) => a + b, 0) || 1;
+      document.getElementById('byArea').innerHTML = Object.entries(data.byArea)
+        .map(([area, count]) => {
+          const pct = (count / areaTotal) * 100;
+          return `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="capitalize">${area}</span>
+                <span class="text-slate-400">${count}</span>
+              </div>
+              <div class="h-2 bg-slate-700 rounded">
+                <div class="h-2 bg-blue-500 rounded" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      const prioTotal = Object.values(data.byPriority).reduce((a, b) => a + b, 0) || 1;
+      document.getElementById('byPriority').innerHTML = Object.entries(data.byPriority)
+        .map(([prio, count]) => {
+          const pct = (count / prioTotal) * 100;
+          return `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="capitalize">${prio}</span>
+                <span class="text-slate-400">${count}</span>
+              </div>
+              <div class="h-2 bg-slate-700 rounded">
+                <div class="h-2 ${priorityColor[prio]} rounded" style="width: ${pct}%"></div>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+
+      document.getElementById('topTickets').innerHTML = data.topTickets.length
+        ? `<table class="w-full text-sm">
+            <thead class="text-slate-400 text-left">
+              <tr>
+                <th class="py-2">Ticket</th>
+                <th>Título</th>
+                <th>Área</th>
+                <th>Prioridad</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${data.topTickets
+                .map(
+                  (t) => `
+                <tr class="border-t border-slate-700">
+                  <td class="py-2 font-mono">#T-${t.id}</td>
+                  <td>${t.title}</td>
+                  <td class="capitalize">${t.area}</td>
+                  <td><span class="px-2 py-0.5 rounded text-xs ${priorityColor[t.priority]}">${t.priority}</span></td>
+                  <td>${t.score}/100</td>
+                </tr>
+              `
+                )
+                .join('')}
+            </tbody>
+          </table>`
+        : '<p class="text-slate-400">No hay tickets abiertos</p>';
+    }
+
+    load();
+    setInterval(load, 5000);
+  </script>
+</body>
+</html>
