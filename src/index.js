@@ -10,7 +10,7 @@ const pino = require('pino');
 const config = require('./config');
 const logger = require('./logger');
 const Store = require('./store');
-const MessageQueue = require('./queue');
+const ResponseQueue = require('./queue');
 const Handler = require('./handler');
 const { startAlerts } = require('./alerts');
 
@@ -23,33 +23,46 @@ let alertsStarted = false;
 let reconnecting = false;
 let botPhoneNumber = null;
 
-const queue = new MessageQueue({
-  minDelay: config.minDelayMs,
-  maxDelay: config.maxDelayMs,
-  logger
-});
-
 async function sendText(jid, text) {
   if (!sock || !sock.user?.id || !jid || !text) return false;
+  try {
+    await sock.sendMessage(jid, { text });
+    return true;
+  } catch (error) {
+    logger.error({ err: error.message, jid }, 'Error enviando mensaje');
+    return false;
+  }
+}
 
-  return queue.add(async () => {
-    try {
-      await sock.sendMessage(jid, { text });
-      return true;
-    } catch (error) {
-      logger.error({ err: error.message, jid }, 'Error enviando mensaje');
-      return false;
+async function sendPresence(jid, type) {
+  if (!sock || !sock.user?.id || !jid) return false;
+  try {
+    if (type === 'composing') {
+      await sock.sendPresenceUpdate('composing', jid);
+    } else {
+      await sock.sendPresenceUpdate('paused', jid);
     }
-  });
+    return true;
+  } catch (error) {
+    return false;
+  }
 }
 
 async function start() {
   const store = new Store(config.dataFile);
   await store.load();
 
+  const responseQueue = new ResponseQueue({
+    sendText,
+    sendPresence,
+    logger,
+    minDelay: config.minDelayMs,
+    maxDelay: config.maxDelayMs
+  });
+
   const handler = new Handler({
     store,
-    sendText,
+    responseQueue,
     logger
   });
 
@@ -66,7 +79,7 @@ async function start() {
       logger: baileysLogger,
       printQRInTerminal: false,
       markOnlineOnConnect: false,
-      shouldIgnoreJid: (jid) => false
+      shouldIgnoreJid: () => false
     });
 
     sock.ev.on('creds.update', saveCreds);
@@ -74,9 +87,7 @@ async function start() {
     sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
-      if (qr) {
-        QRCodeTerminal.generate(qr, { small: true });
-      }
+      if (qr) QRCodeTerminal.generate(qr, { small: true });
 
       if (connection === 'open') {
         botPhoneNumber = sock.user?.id?.split(':')[0]?.split('@')[0];
@@ -85,10 +96,8 @@ async function start() {
 
       if (connection === 'close') {
         const code = lastDisconnect?.error?.output?.statusCode;
-
         if (code !== DisconnectReason.loggedOut && !reconnecting) {
           reconnecting = true;
-
           setTimeout(async () => {
             reconnecting = false;
             await connect();

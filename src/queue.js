@@ -1,46 +1,65 @@
-class MessageQueue {
-  constructor({ minDelay = 3500, maxDelay = 8000, logger = console } = {}) {
+class ResponseQueue {
+  constructor({ sendText, sendPresence, logger, minDelay = 5000, maxDelay = 10000 }) {
+    this.sendText = sendText;
+    this.sendPresence = sendPresence;
+    this.logger = logger;
     this.minDelay = minDelay;
     this.maxDelay = maxDelay;
-    this.logger = logger;
-    this.tasks = [];
-    this.running = false;
+    this.queue = [];
+    this.processing = false;
   }
 
-  add(fn) {
+  enqueue(chatId, buildResponse) {
     return new Promise((resolve, reject) => {
-      this.tasks.push({ fn, resolve, reject });
-      this.run();
+      this.queue.push({ chatId, buildResponse, resolve, reject });
+      this.process();
     });
   }
 
-  async run() {
-    if (this.running) return;
-    this.running = true;
+  async process() {
+    if (this.processing) return;
+    this.processing = true;
 
-    while (this.tasks.length > 0) {
-      const task = this.tasks.shift();
+    while (this.queue.length > 0) {
+      const task = this.queue.shift();
+      const delay = this.randomDelay();
 
       try {
-        const result = await task.fn();
-        task.resolve(result);
+        await this.sendPresence(task.chatId, 'composing');
+        await this.sleep(delay);
+
+        const response = await task.buildResponse();
+
+        await this.sendPresence(task.chatId, 'paused');
+
+        if (response && typeof response === 'string' && response.trim()) {
+          await this.sendText(task.chatId, response);
+        }
+
+        task.resolve(response);
       } catch (error) {
-        this.logger.error?.(error);
+        this.logger.error?.({ err: error.message }, 'Error en cola de respuestas');
+        await this.sendPresence(task.chatId, 'paused').catch(() => {});
         task.reject(error);
       }
 
-      const delay = this.nextDelay();
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      await this.sleep(500);
     }
 
-    this.running = false;
+    this.processing = false;
   }
 
-  nextDelay() {
-    const min = Math.min(this.minDelay, this.maxDelay);
-    const max = Math.max(this.minDelay, this.maxDelay);
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+  randomDelay() {
+    return Math.floor(Math.random() * (this.maxDelay - this.minDelay + 1)) + this.minDelay;
+  }
+
+  sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  pending() {
+    return this.queue.length;
   }
 }
 
-module.exports = MessageQueue;
+module.exports = ResponseQueue;
