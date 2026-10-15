@@ -29,6 +29,16 @@ const RESPONSES = {
     '¡Buenas! ¿Con quién hablo?',
     'Hola, bienvenido a CONATEL. ¿Me puedes decir tu nombre completo?'
   ],
+  saludo_registrado: [
+    '¡Hola {nombre}! ¿En qué te puedo ayudar?',
+    'Hola {nombre}, ¿cómo estás? ¿Qué necesitas?',
+    '¡Buenas {nombre}! Cuéntame, ¿en qué te ayudo?',
+    'Hola {nombre}, ¿qué tal? ¿En qué puedo ayudarte?',
+    '¡Hey {nombre}! ¿Qué necesitas hoy?',
+    'Hola {nombre}, aquí estoy. ¿En qué te colaboro?',
+    '¡Buenas! ¿Cómo te va {nombre}? ¿Qué necesitas?',
+    'Hola {nombre}, dime en qué te puedo ayudar.'
+  ],
   pedir_area: [
     '¿En qué área trabajas: soporte, infraestructura o desarrollo?',
     '¿A qué área perteneces?'
@@ -119,10 +129,10 @@ function extractJson(text = '') {
   return null;
 }
 
-// ============ GEMINI ============
+// ============ GEMINI CON TIMEOUT REDUCIDO ============
 
 let lastGeminiCall = 0;
-const GEMINI_MIN_INTERVAL = 3000;
+const GEMINI_MIN_INTERVAL = 1000;
 
 async function gemini(prompt, { json = true } = {}) {
   const cacheKey = `${prompt.substring(0, 150)}_${json}`;
@@ -153,8 +163,9 @@ async function gemini(prompt, { json = true } = {}) {
   };
   if (json) body.generationConfig.responseMimeType = 'application/json';
 
+  // ✅ TIMEOUT REDUCIDO: 8 segundos en lugar de 15
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const response = await fetch(url, {
@@ -249,42 +260,49 @@ async function extractRegistrationData(text) {
   return { nombre, area, cargo };
 }
 
-// ============ DETECTAR INTENCIÓN ============
+// ============ DETECTAR INTENCIÓN (PRIORIDAD CORREGIDA) ============
 
 function fallbackDetectIntent(text, context = {}) {
   const t = normalizeText(text);
   const ticketId = parseTicketTag(text);
 
-  if (context.activeTicket && t.length < 100 && !ticketId) {
-    return { intencion: 'aclaracion', ticket_id: context.activeTicket.id, area: null, urgencia: null, descripcion: text, confianza: 75 };
-  }
-
-  if (/^(hola|buenos?\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/.test(t)) {
+  // ✅ PRIORIDAD 1: Saludos (siempre detectar primero, incluso con ticket activo)
+  if (/^(hola|buenos?\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/i.test(t)) {
     return { intencion: 'saludo', confianza: 95 };
   }
 
-  if (/\b(gracias|muchas?\s?gracias|te\s?agradezco|thank)\b/.test(t)) {
+  // ✅ PRIORIDAD 2: Agradecimientos
+  if (/\b(gracias|muchas?\s?gracias|te\s?agradezco|thank)\b/i.test(t)) {
     return { intencion: 'agradecimiento', confianza: 90 };
   }
 
-  if (/\b(adios|chao|hasta\s?(luego|pronto)|nos\s?vemos|bye)\b/.test(t)) {
+  // ✅ PRIORIDAD 3: Despedidas
+  if (/\b(adios|chao|hasta\s?(luego|pronto)|nos\s?vemos|bye)\b/i.test(t)) {
     return { intencion: 'despedida', confianza: 90 };
   }
 
+  // ✅ PRIORIDAD 4: Tag de ticket explícito
   if (ticketId) {
     return { intencion: 'actualizar_ticket', ticket_id: ticketId, urgencia: detectUrgencyFromText(text), descripcion: text, confianza: 85 };
   }
 
+  // ✅ PRIORIDAD 5: Aclaración (solo si hay ticket activo Y el mensaje es corto Y no es saludo)
+  if (context.activeTicket && t.length < 50 && !ticketId) {
+    return { intencion: 'aclaracion', ticket_id: context.activeTicket.id, area: null, urgencia: null, descripcion: text, confianza: 75 };
+  }
+
+  // Detectar área
   let area = null;
   if (/(infraestructura|red|internet|wifi|servidor|cable|switch|router|vpn)/.test(t)) area = 'infraestructura';
   else if (/(desarrollo|software|sistema|bug|api|base\s?de\s?datos|codigo|aplicacion)/.test(t)) area = 'desarrollo';
-  else if (/(soporte|correo|contrasena|acceso|office|excel|word|impresora)/.test(t)) area = 'soporte';
+  else if (/(soporte|correo|contrasena|acceso|office|excel|word|impresora|tinta|toner)/.test(t)) area = 'soporte';
 
   const urgencia = detectUrgencyFromText(text);
 
-  const problemKeywords = /(no\s?(puedo|funciona|hay|entra|sirve|anda)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo)|computadora|pc|equipo|molestia|molesto|lento|demora|no\s?me\s?deja|no\s?puedo\s?acceder|no\s?carga|no\s?conecta)/i;
+  // ✅ REGEX MEJORADO: Detecta más problemas comunes
+  const problemKeywords = /(no\s?(puedo|funciona|hay|entra|sirve|anda|imprime|conecta|carga)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo|tinta|toner)|computadora|pc|equipo|molestia|molesto|lento|demora|no\s?me\s?deja|no\s?puedo\s?acceder|no\s?carga|no\s?conecta|impresora|tinta|toner|falta|se\s?quedo|se\s?queda|papel|atascada|no\s?imprime|no\s?escanea|no\s?copia)/i;
   
-  if (problemKeywords.test(t) && t.length >= 8) {
+  if (problemKeywords.test(t) && t.length >= 5) {
     console.log(`   🎯 Problema detectado: ${t.substring(0, 50)}...`);
     return { 
       intencion: 'crear_ticket', 
@@ -293,6 +311,21 @@ function fallbackDetectIntent(text, context = {}) {
       titulo: text.slice(0, 120), 
       descripcion: text, 
       confianza: 85,
+      es_problema: true
+    };
+  }
+
+  // ✅ Detectar solicitudes indirectas
+  const indirectProblem = /(le\s?hace\s?falta|le\s?falta|necesita|requiere|se\s?acabo|se\s?termino|sin\s+\w+|no\s?tengo)/i;
+  if (indirectProblem.test(t) && t.length >= 5) {
+    console.log(`   🎯 Solicitud indirecta detectada: ${t.substring(0, 50)}...`);
+    return { 
+      intencion: 'crear_ticket', 
+      area, 
+      urgencia, 
+      titulo: text.slice(0, 120), 
+      descripcion: text, 
+      confianza: 80,
       es_problema: true
     };
   }
@@ -307,11 +340,13 @@ function fallbackDetectIntent(text, context = {}) {
 async function detectIntent(text, { employee, activeTicket, history = [] }) {
   const fallback = fallbackDetectIntent(text, { activeTicket });
 
-  if (fallback.confianza >= 80) {
+  // ✅ Si el fallback detecta algo con confianza >= 75, usarlo directamente
+  if (fallback.confianza >= 75) {
     console.log(`   ✅ Fallback (${fallback.confianza}%)`);
     return fallback;
   }
 
+  // Solo usar Gemini si el fallback tiene baja confianza
   console.log(`   🤖 Usando Gemini...`);
   const historyText = history.slice(-4).map(m => `${m.from === 'bot' ? 'Bot' : 'Usuario'}: ${m.text}`).join(' | ');
 

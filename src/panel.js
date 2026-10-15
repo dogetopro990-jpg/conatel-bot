@@ -84,6 +84,16 @@ function serveFile(res, pathname) {
   });
 }
 
+// Función auxiliar para enriquecer ticket con nombre registrado
+function enrichTicket(ticket, store) {
+  const employee = store.data.employees?.[ticket.requesterPhone];
+  return {
+    ...ticket,
+    requesterName: employee?.name || ticket.requesterName || 'Desconocido',
+    requesterPhone: ticket.requesterPhone
+  };
+}
+
 function startPanel({ store, sendText, logger, port, host }) {
   const serverPort = Number(port || process.env.PANEL_PORT || 3000);
   const serverHost = host || process.env.PANEL_HOST || '0.0.0.0';
@@ -131,14 +141,17 @@ function startPanel({ store, sendText, logger, port, host }) {
             title: t.title,
             area: t.area,
             priority: t.priorityLevel,
-            score: t.score
+            score: t.score,
+            requesterName: enrichTicket(t, store).requesterName
           }))
       });
     }
 
-    // ---------- TICKETS LIST (Siempre devuelve un array) ----------
+    // ---------- TICKETS LIST (con nombre registrado) ----------
     if (pathname === '/api/tickets' && method === 'GET') {
-      let tickets = Object.values(store.data.tickets || {}).map(refreshPriority);
+      let tickets = Object.values(store.data.tickets || {})
+        .map(t => enrichTicket(t, store))
+        .map(refreshPriority);
 
       const status = query.get('status');
       const area = query.get('area');
@@ -162,16 +175,15 @@ function startPanel({ store, sendText, logger, port, host }) {
       tickets.sort((a, b) => b.score - a.score);
       return json(res, 200, tickets);
     }
-    
+
     // ---------- TICKETS RESUELTOS ----------
     if (pathname === '/api/tickets/resolved' && method === 'GET') {
       let tickets = Object.values(store.data.tickets || {})
         .filter(t => t.status === 'cerrada')
+        .map(t => enrichTicket(t, store))
         .map(refreshPriority);
 
-      // Ordenar por fecha de actualización (más recientes primero)
       tickets.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-      
       return json(res, 200, tickets);
     }
 
@@ -188,14 +200,14 @@ function startPanel({ store, sendText, logger, port, host }) {
       // GET /api/tickets/:id
       if (method === 'GET' && parts.length === 3) {
         refreshPriority(ticket);
-        return json(res, 200, ticket);
+        return json(res, 200, enrichTicket(ticket, store));
       }
 
-            // PATCH /api/tickets/:id
+      // PATCH /api/tickets/:id
       if (method === 'PATCH' && parts.length === 3) {
         const body = await readBody(req);
         const patch = {};
-        const wasClosed = ticket.status === 'cerrada'; // Guardar estado anterior
+        const previousStatus = ticket.status;
 
         if (body.status && ['abierta', 'en_progreso', 'cerrada'].includes(body.status)) {
           patch.status = body.status;
@@ -213,14 +225,14 @@ function startPanel({ store, sendText, logger, port, host }) {
         refreshPriority(ticket);
         await store.save();
 
-        // 🚨 Si se acaba de cerrar, enviar notificación
-        if (patch.status === 'cerrada' && !wasClosed) {
+        // Si se acaba de cerrar, notificar al solicitante
+        if (patch.status === 'cerrada' && previousStatus !== 'cerrada') {
           notifyRequesterOnClose({ ticket, sendText, logger }).catch(err => {
             console.error(`   ❌ Error notificando cierre: ${err.message}`);
           });
         }
 
-        return json(res, 200, ticket);
+        return json(res, 200, enrichTicket(ticket, store));
       }
 
       // DELETE /api/tickets/:id
@@ -351,7 +363,7 @@ function startPanel({ store, sendText, logger, port, host }) {
           const ok = await sendText(`${phone}@s.whatsapp.net`, `📢 ${body.text}`);
           if (ok) sent++;
         } catch (err) {
-          // Ignorar error individual de envío
+          // Ignorar error individual
         }
       }
 

@@ -481,7 +481,8 @@ class Handler {
 
           console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
 
-          const transicion = getRandomResponse('transicion_a_solicitud', { nombre: data.nombre.split(' ')[0] });
+          const firstName = data.nombre.split(' ')[0];
+          const transicion = getRandomResponse('transicion_a_solicitud', { nombre: firstName });
           return transicion;
         }
 
@@ -533,7 +534,8 @@ class Handler {
 
         console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
 
-        const transicion = getRandomResponse('transicion_a_solicitud', { nombre: data.nombre.split(' ')[0] });
+        const firstName = data.nombre.split(' ')[0];
+        const transicion = getRandomResponse('transicion_a_solicitud', { nombre: firstName });
         return transicion;
       }
 
@@ -565,18 +567,19 @@ class Handler {
           
           response = getRandomResponse('saludo');
         } else {
-          // Usar solo el primer nombre, o a veces omitirlo
-          if (Math.random() > 0.5 && employee.name) {
-            const firstName = employee.name.split(' ')[0];
-            response = getRandomResponse('transicion_a_solicitud', { nombre: firstName });
-          } else {
-            response = getRandomResponse('transicion_a_solicitud', { nombre: '' }).replace(/^Bien\s+|Perfecto\s+|Listo\s+|Ok\s+/, '').trim();
-            // Si quedó vacío, usar una respuesta sin nombre
-            if (!response) {
-              response = '¿En qué te puedo ayudar?';
-            }
-          }
+          const firstName = employee.name.split(' ')[0];
+          response = getRandomResponse('saludo_registrado', { nombre: firstName });
         }
+        break;
+      }
+
+      case 'agradecimiento': {
+        response = getRandomResponse('agradecimiento');
+        break;
+      }
+
+      case 'despedida': {
+        response = getRandomResponse('despedida');
         break;
       }
 
@@ -611,7 +614,6 @@ class Handler {
           originalText: text
         });
 
-        // Asignación automática y notificación con delay de 10 min
         const assignee = autoAssignAndNotify({
           store: this.store,
           ticket,
@@ -623,7 +625,6 @@ class Handler {
         await this.store.save();
         console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
 
-        // Respuestas variadas y naturales
         const responses = [
           'Entendido, lo voy a revisar y te aviso.',
           'Ok, ya lo tengo registrado. Te aviso cuando tenga novedades.',
@@ -635,7 +636,6 @@ class Handler {
           'Listo, ya lo estamos viendo. Te aviso pronto.'
         ];
 
-        // 50% de probabilidad de usar el primer nombre, 50% sin nombre
         if (Math.random() > 0.5 && employee.name) {
           const firstName = employee.name.split(' ')[0];
           const baseResponse = responses[Math.floor(Math.random() * responses.length)];
