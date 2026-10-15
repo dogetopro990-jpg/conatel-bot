@@ -3,148 +3,342 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CONATEL - Panel</title>
+  <title>Tickets - CONATEL Panel</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
     <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
+      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg">C</div>
       <div>
         <h1 class="text-lg font-bold">CONATEL Panel</h1>
-        <p class="text-xs text-slate-400">Sistema de tickets y solicitudes</p>
+        <p class="text-xs text-slate-400">Gestión de Tickets</p>
       </div>
     </div>
     <div class="flex gap-2 text-sm">
-      <a href="index.html" class="px-3 py-1.5 bg-blue-600 rounded">Dashboard</a>
-      <a href="tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
-      <a href="messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
+      <a href="/tickets.html" class="px-3 py-1.5 bg-blue-600 rounded">Tickets</a>
+      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded text-green-400">✅ Resueltos</a>
+      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
+      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
+      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
     </div>
   </nav>
 
   <main class="max-w-7xl mx-auto p-6">
-    <h2 class="text-2xl font-bold mb-6">Dashboard</h2>
-
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="stats"></div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-slate-800 rounded-lg p-6">
-        <h3 class="font-bold mb-4">Tickets por área</h3>
-        <div id="byArea" class="space-y-2"></div>
-      </div>
-      <div class="bg-slate-800 rounded-lg p-6">
-        <h3 class="font-bold mb-4">Tickets por prioridad</h3>
-        <div id="byPriority" class="space-y-2"></div>
-      </div>
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold flex items-center gap-2">
+        🎫 Tickets <span id="ticketCount" class="text-sm bg-slate-700 px-2 py-0.5 rounded-full">0</span>
+      </h2>
+      <button onclick="loadData()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm">🔄 Actualizar</button>
     </div>
 
-    <div class="bg-slate-800 rounded-lg p-6 mt-6">
-      <h3 class="font-bold mb-4">Top 5 tickets prioritarios</h3>
-      <div id="topTickets"></div>
+    <div class="bg-slate-800 rounded-lg p-4 mb-6 flex flex-wrap gap-3 border border-slate-700">
+      <select id="filterStatus" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
+        <option value="">Todos los estados</option>
+        <option value="abierta">Abierta</option>
+        <option value="en_progreso">En progreso</option>
+        <option value="cerrada">Cerrada</option>
+      </select>
+      <select id="filterArea" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
+        <option value="">Todas las áreas</option>
+        <option value="soporte">Soporte</option>
+        <option value="infraestructura">Infraestructura</option>
+        <option value="desarrollo">Desarrollo</option>
+      </select>
+      <select id="filterPriority" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
+        <option value="">Todas las prioridades</option>
+        <option value="critica">Crítica</option>
+        <option value="alta">Alta</option>
+        <option value="media">Media</option>
+        <option value="baja">Baja</option>
+      </select>
+      <input id="filterSearch" placeholder="Buscar (ID, título, nombre)..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
+    </div>
+
+    <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
+            <tr>
+              <th class="p-4">ID</th>
+              <th class="p-4">Título</th>
+              <th class="p-4">Solicitante</th>
+              <th class="p-4">Área</th>
+              <th class="p-4">Prioridad</th>
+              <th class="p-4">Estado</th>
+              <th class="p-4">Asignado</th>
+              <th class="p-4 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody" class="divide-y divide-slate-700">
+            <tr><td colspan="8" class="p-8 text-center text-slate-500">Cargando datos...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </main>
 
+  <div id="modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-700">
+      <div class="flex justify-between items-center p-5 border-b border-slate-700">
+        <div>
+          <h3 class="text-xl font-bold" id="modalTitle">Ticket</h3>
+          <p class="text-xs text-slate-400 mt-1" id="modalSubtitle"></p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-2 rounded-full">✕</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto custom-scroll flex-1 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-lg">
+          <div>
+            <span class="text-xs text-slate-500 uppercase">Descripción</span>
+            <p class="text-sm mt-1" id="modalDescription"></p>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span class="text-xs text-slate-500">Solicitante</span><span id="modalRequester"></span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-500">Área</span><span class="capitalize" id="modalArea"></span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-500">Prioridad</span><span id="modalPriority"></span></div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-sm mb-3">📜 Historial</h4>
+          <div id="modalHistory" class="space-y-3 max-h-64 overflow-y-auto custom-scroll pr-2"></div>
+        </div>
+
+        <div class="border-t border-slate-700 pt-5 space-y-4">
+          <h4 class="font-bold text-sm">Gestionar</h4>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="text-xs text-slate-400">Estado</label>
+              <select id="newStatus" class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1">
+                <option value="abierta">Abierta</option>
+                <option value="en_progreso">En progreso</option>
+                <option value="cerrada">Cerrada</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400">Asignar a</label>
+              <select id="newAssignee" class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1">
+                <option value="">Sin asignar</option>
+              </select>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <button onclick="updateTicket()" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg font-semibold">💾 Guardar</button>
+            <button onclick="deleteTicket()" class="bg-red-600 hover:bg-red-700 py-2.5 px-6 rounded-lg font-semibold">🗑️ Eliminar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    const priorityColor = {
-      critica: 'bg-red-500',
-      alta: 'bg-orange-500',
-      media: 'bg-yellow-500',
-      baja: 'bg-green-500'
+    const priorityColors = {
+      critica: 'bg-red-500/20 text-red-400 border border-red-500/30',
+      alta: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
+      media: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
+      baja: 'bg-green-500/20 text-green-400 border border-green-500/30'
+    };
+    const statusColors = {
+      abierta: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
+      en_progreso: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+      cerrada: 'bg-slate-600/20 text-slate-400 border border-slate-600/30'
     };
 
-    async function load() {
-      const res = await fetch('/api/stats');
-      const data = await res.json();
+    let allTickets = [];
+    let allEmployees = [];
+    let currentTicketId = null;
 
-      document.getElementById('stats').innerHTML = `
-        <div class="bg-slate-800 p-4 rounded-lg">
-          <div class="text-slate-400 text-sm">Total tickets</div>
-          <div class="text-3xl font-bold">${data.total}</div>
-        </div>
-        <div class="bg-slate-800 p-4 rounded-lg">
-          <div class="text-slate-400 text-sm">Abiertos</div>
-          <div class="text-3xl font-bold text-blue-400">${data.open}</div>
-        </div>
-        <div class="bg-slate-800 p-4 rounded-lg">
-          <div class="text-slate-400 text-sm">Cerrados</div>
-          <div class="text-3xl font-bold text-green-400">${data.closed}</div>
-        </div>
-        <div class="bg-slate-800 p-4 rounded-lg">
-          <div class="text-slate-400 text-sm">Empleados</div>
-          <div class="text-3xl font-bold text-purple-400">${data.employees}</div>
-        </div>
-      `;
+    async function loadData() {
+      try {
+        const [ticketsRes, empRes] = await Promise.all([
+          fetch('/api/tickets'),
+          fetch('/api/employees')
+        ]);
+        
+        if (!ticketsRes.ok) throw new Error(`API Tickets: ${ticketsRes.status}`);
+        if (!empRes.ok) throw new Error(`API Empleados: ${empRes.status}`);
 
-      const areaTotal = Object.values(data.byArea).reduce((a, b) => a + b, 0) || 1;
-      document.getElementById('byArea').innerHTML = Object.entries(data.byArea)
-        .map(([area, count]) => {
-          const pct = (count / areaTotal) * 100;
-          return `
-            <div>
-              <div class="flex justify-between text-sm mb-1">
-                <span class="capitalize">${area}</span>
-                <span class="text-slate-400">${count}</span>
-              </div>
-              <div class="h-2 bg-slate-700 rounded">
-                <div class="h-2 bg-blue-500 rounded" style="width: ${pct}%"></div>
-              </div>
-            </div>
-          `;
-        })
-        .join('');
+        const ticketsData = await ticketsRes.json();
+        const empData = await empRes.json();
 
-      const prioTotal = Object.values(data.byPriority).reduce((a, b) => a + b, 0) || 1;
-      document.getElementById('byPriority').innerHTML = Object.entries(data.byPriority)
-        .map(([prio, count]) => {
-          const pct = (count / prioTotal) * 100;
-          return `
-            <div>
-              <div class="flex justify-between text-sm mb-1">
-                <span class="capitalize">${prio}</span>
-                <span class="text-slate-400">${count}</span>
-              </div>
-              <div class="h-2 bg-slate-700 rounded">
-                <div class="h-2 ${priorityColor[prio]} rounded" style="width: ${pct}%"></div>
-              </div>
-            </div>
-          `;
-        })
-        .join('');
+        // Asegurar que sean arrays
+        allTickets = Array.isArray(ticketsData) ? ticketsData : [];
+        allEmployees = Array.isArray(empData) ? empData : [];
 
-      document.getElementById('topTickets').innerHTML = data.topTickets.length
-        ? `<table class="w-full text-sm">
-            <thead class="text-slate-400 text-left">
-              <tr>
-                <th class="py-2">Ticket</th>
-                <th>Título</th>
-                <th>Área</th>
-                <th>Prioridad</th>
-                <th>Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.topTickets
-                .map(
-                  (t) => `
-                <tr class="border-t border-slate-700">
-                  <td class="py-2 font-mono">#T-${t.id}</td>
-                  <td>${t.title}</td>
-                  <td class="capitalize">${t.area}</td>
-                  <td><span class="px-2 py-0.5 rounded text-xs ${priorityColor[t.priority]}">${t.priority}</span></td>
-                  <td>${t.score}/100</td>
-                </tr>
-              `
-                )
-                .join('')}
-            </tbody>
-          </table>`
-        : '<p class="text-slate-400">No hay tickets abiertos</p>';
+        console.log(`✅ Cargados: ${allTickets.length} tickets, ${allEmployees.length} empleados`);
+        renderTickets();
+      } catch (error) {
+        console.error('❌ Error cargando datos:', error);
+        document.getElementById('ticketsTableBody').innerHTML = 
+          `<tr><td colspan="8" class="p-8 text-center text-red-400">Error al cargar: ${error.message}<br>Revisa la consola (F12) para más detalles.</td></tr>`;
+      }
     }
 
-    load();
-    setInterval(load, 5000);
+    function renderTickets() {
+      const status = document.getElementById('filterStatus').value;
+      const area = document.getElementById('filterArea').value;
+      const priority = document.getElementById('filterPriority').value;
+      const search = document.getElementById('filterSearch').value.toLowerCase();
+
+      let filtered = allTickets.filter(t => {
+        if (status && t.status !== status) return false;
+        if (area && t.area !== area) return false;
+        if (priority && t.priorityLevel !== priority) return false;
+        if (search) {
+          const s = `#T-${t.id} ${t.title} ${t.requesterName} ${t.requesterPhone}`.toLowerCase();
+          if (!s.includes(search)) return false;
+        }
+        return true;
+      });
+
+      filtered.sort((a, b) => b.score - a.score);
+      document.getElementById('ticketCount').textContent = filtered.length;
+
+      const tbody = document.getElementById('ticketsTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No se encontraron tickets con estos filtros.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => `
+        <tr class="hover:bg-slate-700/40 transition">
+          <td class="p-4 font-mono text-blue-400">#T-${t.id}</td>
+          <td class="p-4 max-w-xs truncate" title="${t.title}">${t.title}</td>
+          <td class="p-4">
+            <div>${t.requesterName || 'Desconocido'}</div>
+            <div class="text-xs text-slate-500">${t.requesterPhone}</div>
+          </td>
+          <td class="p-4 capitalize">${t.area}</td>
+          <td class="p-4">
+            <span class="px-2 py-1 rounded-full text-xs ${priorityColors[t.priorityLevel] || priorityColors.media}">
+              ${t.priorityLevel} (${t.score})
+            </span>
+          </td>
+          <td class="p-4">
+            <span class="px-2 py-1 rounded-full text-xs ${statusColors[t.status] || statusColors.abierta}">
+              ${t.status.replace('_', ' ')}
+            </span>
+          </td>
+          <td class="p-4 text-slate-400">${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span class="italic text-slate-600">Sin asignar</span>'}</td>
+          <td class="p-4 text-center">
+            <button onclick="viewTicket(${t.id})" class="text-blue-400 hover:bg-blue-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver detalle</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function getEmployeeName(phone) {
+      const emp = allEmployees.find(e => e.phone === phone);
+      return emp ? emp.name : phone;
+    }
+
+    async function viewTicket(id) {
+      currentTicketId = id;
+      const t = allTickets.find(x => x.id === id);
+      if (!t) return;
+
+      document.getElementById('modalTitle').textContent = `Ticket #T-${t.id}`;
+      document.getElementById('modalSubtitle').textContent = `Creado: ${new Date(t.createdAt).toLocaleString()}`;
+      document.getElementById('modalDescription').textContent = t.description || 'Sin descripción';
+      document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
+      document.getElementById('modalArea').textContent = t.area;
+
+      const prioEl = document.getElementById('modalPriority');
+      prioEl.className = `px-2 py-1 rounded-full text-xs ${priorityColors[t.priorityLevel] || priorityColors.media}`;
+      prioEl.textContent = `${t.priorityLevel} (${t.score})`;
+
+      const historyContainer = document.getElementById('modalHistory');
+      if (t.messages && t.messages.length > 0) {
+        historyContainer.innerHTML = t.messages.map(m => {
+          const isBot = m.from === 'bot' || m.from === 'panel';
+          const bg = isBot ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-700/50 border-slate-600';
+          const label = isBot ? '🤖 Sistema' : `👤 ${m.name}`;
+          return `
+            <div class="text-[10px] text-slate-500 mb-1">${label} • ${new Date(m.at).toLocaleString()}</div>
+            <div class="${bg} border p-3 rounded-lg mb-3 text-sm">${m.text}</div>
+          `;
+        }).join('');
+      } else {
+        historyContainer.innerHTML = `<div class="text-sm text-slate-500 italic text-center py-4">Sin mensajes en el historial</div>`;
+      }
+
+      document.getElementById('newStatus').value = t.status;
+      const assigneeSelect = document.getElementById('newAssignee');
+      assigneeSelect.innerHTML = '<option value="">Sin asignar</option>';
+      allEmployees.filter(e => e.area === t.area).forEach(emp => {
+        const selected = t.assignedTo === emp.phone ? 'selected' : '';
+        assigneeSelect.innerHTML += `<option value="${emp.phone}" ${selected}>${emp.name} (${emp.role})</option>`;
+      });
+
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    async function updateTicket() {
+      if (!currentTicketId) return;
+      const status = document.getElementById('newStatus').value;
+      const assignedTo = document.getElementById('newAssignee').value || null;
+
+      try {
+        const res = await fetch(`/api/tickets/${currentTicketId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, assignedTo })
+        });
+        if (res.ok) {
+          closeModal();
+          await loadData();
+        } else {
+          alert('Error al actualizar el ticket');
+        }
+      } catch (error) {
+        alert('Error de red al actualizar');
+      }
+    }
+
+    async function deleteTicket() {
+      if (!currentTicketId) return;
+      if (!confirm(`¿Eliminar ticket #T-${currentTicketId}? Esta acción no se puede deshacer.`)) return;
+
+      try {
+        const res = await fetch(`/api/tickets/${currentTicketId}`, { method: 'DELETE' });
+        if (res.ok) {
+          closeModal();
+          await loadData();
+        } else {
+          const err = await res.json();
+          alert(`Error al eliminar: ${err.error || 'Desconocido'}`);
+        }
+      } catch (error) {
+        alert('Error de red al eliminar');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      currentTicketId = null;
+    }
+
+    ['filterStatus', 'filterArea', 'filterPriority', 'filterSearch'].forEach(id => {
+      document.getElementById(id).addEventListener('input', renderTickets);
+      document.getElementById(id).addEventListener('change', renderTickets);
+    });
+
+    document.getElementById('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') closeModal();
+    });
+
+    // Carga inicial
+    loadData();
+    // Auto-refresh cada 10 segundos
+    setInterval(loadData, 10000);
   </script>
 </body>
 </html>

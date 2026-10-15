@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tickets Resueltos - CONATEL Panel</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center font-bold text-lg">C</div>
+      <div>
+        <h1 class="text-lg font-bold">CONATEL Panel</h1>
+        <p class="text-xs text-slate-400">Tickets Resueltos</p>
+      </div>
+    </div>
+    <div class="flex gap-2 text-sm">
+      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
+      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets Activos</a>
+      <a href="/resolved.html" class="px-3 py-1.5 bg-green-600 rounded">Resueltos</a>
+      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
+    </div>
+  </nav>
+
+  <main class="max-w-7xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-2xl font-bold flex items-center gap-2">
+        ✅ Tickets Resueltos <span id="ticketCount" class="text-sm bg-slate-700 px-2 py-0.5 rounded-full">0</span>
+      </h2>
+      <button onclick="loadData()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm">🔄 Actualizar</button>
+    </div>
+
+    <div class="bg-slate-800 rounded-lg p-4 mb-6 flex flex-wrap gap-3 border border-slate-700">
+      <select id="filterArea" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
+        <option value="">Todas las áreas</option>
+        <option value="soporte">Soporte</option>
+        <option value="infraestructura">Infraestructura</option>
+        <option value="desarrollo">Desarrollo</option>
+      </select>
+      <input id="filterSearch" placeholder="Buscar (ID, título, nombre)..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
+    </div>
+
+    <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
+            <tr>
+              <th class="p-4">ID</th>
+              <th class="p-4">Título</th>
+              <th class="p-4">Solicitante</th>
+              <th class="p-4">Área</th>
+              <th class="p-4">Resuelto el</th>
+              <th class="p-4 text-center">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody" class="divide-y divide-slate-700">
+            <tr><td colspan="6" class="p-8 text-center text-slate-500">Cargando datos...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal de Detalle (Solo lectura + Reabrir) -->
+  <div id="modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div class="bg-slate-800 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-700">
+      <div class="flex justify-between items-center p-5 border-b border-slate-700">
+        <div>
+          <h3 class="text-xl font-bold" id="modalTitle">Ticket</h3>
+          <p class="text-xs text-slate-400 mt-1" id="modalSubtitle"></p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-2 rounded-full">✕</button>
+      </div>
+
+      <div class="p-5 overflow-y-auto custom-scroll flex-1 space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-lg">
+          <div>
+            <span class="text-xs text-slate-500 uppercase">Descripción</span>
+            <p class="text-sm mt-1" id="modalDescription"></p>
+          </div>
+          <div class="space-y-2">
+            <div class="flex justify-between"><span class="text-xs text-slate-500">Solicitante</span><span id="modalRequester"></span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-500">Área</span><span class="capitalize" id="modalArea"></span></div>
+            <div class="flex justify-between"><span class="text-xs text-slate-500">Asignado a</span><span id="modalAssignee"></span></div>
+          </div>
+        </div>
+
+        <div class="border-t border-slate-700 pt-5">
+          <button onclick="reopenTicket()" class="w-full bg-yellow-600 hover:bg-yellow-700 py-2.5 rounded-lg font-semibold text-white transition">
+            🔄 Reabrir Ticket (Mover a Activos)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allTickets = [];
+    let currentTicketId = null;
+
+    async function loadData() {
+      try {
+        const res = await fetch('/api/tickets/resolved');
+        if (!res.ok) throw new Error(`API Error: ${res.status}`);
+        allTickets = await res.json();
+        renderTickets();
+      } catch (error) {
+        console.error('❌ Error:', error);
+        document.getElementById('ticketsTableBody').innerHTML = 
+          `<tr><td colspan="6" class="p-8 text-center text-red-400">Error al cargar datos</td></tr>`;
+      }
+    }
+
+    function renderTickets() {
+      const area = document.getElementById('filterArea').value;
+      const search = document.getElementById('filterSearch').value.toLowerCase();
+
+      let filtered = allTickets.filter(t => {
+        if (area && t.area !== area) return false;
+        if (search) {
+          const s = `#T-${t.id} ${t.title} ${t.requesterName}`.toLowerCase();
+          if (!s.includes(search)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('ticketCount').textContent = filtered.length;
+      const tbody = document.getElementById('ticketsTableBody');
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No hay tickets resueltos.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(t => `
+        <tr class="hover:bg-slate-700/40 transition">
+          <td class="p-4 font-mono text-green-400">#T-${t.id}</td>
+          <td class="p-4 max-w-xs truncate text-slate-300">${t.title}</td>
+          <td class="p-4">
+            <div>${t.requesterName || 'Desconocido'}</div>
+            <div class="text-xs text-slate-500">${t.requesterPhone}</div>
+          </td>
+          <td class="p-4 capitalize text-slate-300">${t.area}</td>
+          <td class="p-4 text-slate-400 text-xs">${new Date(t.updatedAt).toLocaleString()}</td>
+          <td class="p-4 text-center">
+            <button onclick="viewTicket(${t.id})" class="text-green-400 hover:bg-green-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver detalle</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function viewTicket(id) {
+      currentTicketId = id;
+      const t = allTickets.find(x => x.id === id);
+      if (!t) return;
+
+      document.getElementById('modalTitle').textContent = `Ticket #T-${t.id} (Resuelto)`;
+      document.getElementById('modalSubtitle').textContent = `Cerrado el: ${new Date(t.updatedAt).toLocaleString()}`;
+      document.getElementById('modalDescription').textContent = t.description || 'Sin descripción';
+      document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
+      document.getElementById('modalArea').textContent = t.area;
+      
+      const assignee = t.assignedTo ? t.assignedTo : 'Sin asignar';
+      document.getElementById('modalAssignee').textContent = assignee;
+
+      document.getElementById('modal').classList.remove('hidden');
+    }
+
+    async function reopenTicket() {
+      if (!currentTicketId) return;
+      if (!confirm('¿Reabrir este ticket? Volverá a la bandeja de Tickets Activos.')) return;
+
+      try {
+        const res = await fetch(`/api/tickets/${currentTicketId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'abierta' })
+        });
+        
+        if (res.ok) {
+          closeModal();
+          await loadData();
+          alert('Ticket reabierto correctamente');
+        }
+      } catch (error) {
+        alert('Error al reabrir el ticket');
+      }
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      currentTicketId = null;
+    }
+
+    document.getElementById('filterArea').addEventListener('change', renderTickets);
+    document.getElementById('filterSearch').addEventListener('input', renderTickets);
+    document.getElementById('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+
+    loadData();
+    setInterval(loadData, 15000); // Actualizar cada 15s
+  </script>
+</body>
+</html>
