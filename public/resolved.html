@@ -20,11 +20,13 @@
         <p class="text-xs text-slate-400">Tickets Resueltos</p>
       </div>
     </div>
-    <div class="flex gap-2 text-sm">
+    <div class="flex gap-2 text-sm flex-wrap">
       <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets Activos</a>
-      <a href="/resolved.html" class="px-3 py-1.5 bg-green-600 rounded">Resueltos</a>
+      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
+      <a href="/resolved.html" class="px-3 py-1.5 bg-green-600 rounded">✅ Resueltos</a>
       <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
+      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
+      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
     </div>
   </nav>
 
@@ -43,7 +45,7 @@
         <option value="infraestructura">Infraestructura</option>
         <option value="desarrollo">Desarrollo</option>
       </select>
-      <input id="filterSearch" placeholder="Buscar (ID, título, nombre)..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
+      <input id="filterSearch" placeholder="Buscar..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
     </div>
 
     <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
@@ -55,19 +57,19 @@
               <th class="p-4">Título</th>
               <th class="p-4">Solicitante</th>
               <th class="p-4">Área</th>
+              <th class="p-4">Asignado a</th>
               <th class="p-4">Resuelto el</th>
               <th class="p-4 text-center">Acciones</th>
             </tr>
           </thead>
           <tbody id="ticketsTableBody" class="divide-y divide-slate-700">
-            <tr><td colspan="6" class="p-8 text-center text-slate-500">Cargando datos...</td></tr>
+            <tr><td colspan="7" class="p-8 text-center text-slate-500">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
     </div>
   </main>
 
-  <!-- Modal de Detalle (Solo lectura + Reabrir) -->
   <div id="modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
     <div class="bg-slate-800 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-700">
       <div class="flex justify-between items-center p-5 border-b border-slate-700">
@@ -91,6 +93,11 @@
           </div>
         </div>
 
+        <div>
+          <h4 class="font-bold text-sm mb-3">📜 Historial</h4>
+          <div id="modalHistory" class="space-y-3 max-h-64 overflow-y-auto custom-scroll pr-2"></div>
+        </div>
+
         <div class="border-t border-slate-700 pt-5">
           <button onclick="reopenTicket()" class="w-full bg-yellow-600 hover:bg-yellow-700 py-2.5 rounded-lg font-semibold text-white transition">
             🔄 Reabrir Ticket (Mover a Activos)
@@ -102,18 +109,32 @@
 
   <script>
     let allTickets = [];
+    let allEmployees = [];
     let currentTicketId = null;
 
     async function loadData() {
       try {
-        const res = await fetch('/api/tickets/resolved');
-        if (!res.ok) throw new Error(`API Error: ${res.status}`);
-        allTickets = await res.json();
+        const [ticketsRes, empRes] = await Promise.all([
+          fetch('/api/tickets/resolved'),
+          fetch('/api/employees')
+        ]);
+        
+        if (!ticketsRes.ok) throw new Error(`API: ${ticketsRes.status}`);
+        
+        const ticketsData = await ticketsRes.json();
+        allTickets = Array.isArray(ticketsData) ? ticketsData : [];
+        allEmployees = Array.isArray(await empRes.json()) ? await empRes.json() : [];
+        
+        // Recargar empleados
+        const empData = await empRes.json().catch(() => []);
+        allEmployees = Array.isArray(empData) ? empData : [];
+
+        console.log(`✅ Cargados: ${allTickets.length} tickets resueltos`);
         renderTickets();
       } catch (error) {
         console.error('❌ Error:', error);
         document.getElementById('ticketsTableBody').innerHTML = 
-          `<tr><td colspan="6" class="p-8 text-center text-red-400">Error al cargar datos</td></tr>`;
+          `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${error.message}</td></tr>`;
       }
     }
 
@@ -134,7 +155,7 @@
       const tbody = document.getElementById('ticketsTableBody');
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500">No hay tickets resueltos.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No hay tickets resueltos.</td></tr>`;
         return;
       }
 
@@ -147,15 +168,21 @@
             <div class="text-xs text-slate-500">${t.requesterPhone}</div>
           </td>
           <td class="p-4 capitalize text-slate-300">${t.area}</td>
+          <td class="p-4 text-slate-400">${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span class="italic text-slate-600">Sin asignar</span>'}</td>
           <td class="p-4 text-slate-400 text-xs">${new Date(t.updatedAt).toLocaleString()}</td>
           <td class="p-4 text-center">
-            <button onclick="viewTicket(${t.id})" class="text-green-400 hover:bg-green-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver detalle</button>
+            <button onclick="viewTicket(${t.id})" class="text-green-400 hover:bg-green-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver</button>
           </td>
         </tr>
       `).join('');
     }
 
-    function viewTicket(id) {
+    function getEmployeeName(phone) {
+      const emp = allEmployees.find(e => e.phone === phone);
+      return emp ? emp.name : phone;
+    }
+
+    async function viewTicket(id) {
       currentTicketId = id;
       const t = allTickets.find(x => x.id === id);
       if (!t) return;
@@ -165,9 +192,22 @@
       document.getElementById('modalDescription').textContent = t.description || 'Sin descripción';
       document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
       document.getElementById('modalArea').textContent = t.area;
-      
-      const assignee = t.assignedTo ? t.assignedTo : 'Sin asignar';
-      document.getElementById('modalAssignee').textContent = assignee;
+      document.getElementById('modalAssignee').textContent = t.assignedTo ? getEmployeeName(t.assignedTo) : 'Sin asignar';
+
+      const historyContainer = document.getElementById('modalHistory');
+      if (t.messages && t.messages.length > 0) {
+        historyContainer.innerHTML = t.messages.map(m => {
+          const isBot = m.from === 'bot' || m.from === 'panel';
+          const bg = isBot ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-700/50 border-slate-600';
+          const label = isBot ? '🤖 Sistema' : `👤 ${m.name}`;
+          return `
+            <div class="text-[10px] text-slate-500 mb-1">${label} • ${new Date(m.at).toLocaleString()}</div>
+            <div class="${bg} border p-3 rounded-lg mb-3 text-sm">${m.text}</div>
+          `;
+        }).join('');
+      } else {
+        historyContainer.innerHTML = `<div class="text-sm text-slate-500 italic text-center py-4">Sin mensajes</div>`;
+      }
 
       document.getElementById('modal').classList.remove('hidden');
     }
@@ -187,9 +227,11 @@
           closeModal();
           await loadData();
           alert('Ticket reabierto correctamente');
+        } else {
+          alert('Error al reabrir');
         }
       } catch (error) {
-        alert('Error al reabrir el ticket');
+        alert('Error de red');
       }
     }
 
@@ -203,7 +245,7 @@
     document.getElementById('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
 
     loadData();
-    setInterval(loadData, 15000); // Actualizar cada 15s
+    setInterval(loadData, 15000);
   </script>
 </body>
 </html>

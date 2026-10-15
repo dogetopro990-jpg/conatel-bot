@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
       <div>
@@ -15,12 +15,13 @@
         <p class="text-xs text-slate-400">Sistema de tickets y solicitudes</p>
       </div>
     </div>
-    <div class="flex gap-2 text-sm">
-      <a href="index.html" class="px-3 py-1.5 bg-blue-600 rounded">Dashboard</a>
-      <a href="tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
-      <a href="messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    <div class="flex gap-2 text-sm flex-wrap">
+      <a href="/" class="px-3 py-1.5 bg-blue-600 rounded">Dashboard</a>
+      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
+      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
+      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
+      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
+      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
     </div>
   </nav>
 
@@ -30,17 +31,17 @@
     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="stats"></div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="bg-slate-800 rounded-lg p-6">
+      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
         <h3 class="font-bold mb-4">Tickets por área</h3>
         <div id="byArea" class="space-y-2"></div>
       </div>
-      <div class="bg-slate-800 rounded-lg p-6">
+      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
         <h3 class="font-bold mb-4">Tickets por prioridad</h3>
         <div id="byPriority" class="space-y-2"></div>
       </div>
     </div>
 
-    <div class="bg-slate-800 rounded-lg p-6 mt-6">
+    <div class="bg-slate-800 rounded-lg p-6 mt-6 border border-slate-700">
       <h3 class="font-bold mb-4">Top 5 tickets prioritarios</h3>
       <div id="topTickets"></div>
     </div>
@@ -59,19 +60,19 @@
       const data = await res.json();
 
       document.getElementById('stats').innerHTML = `
-        <div class="bg-slate-800 p-4 rounded-lg">
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div class="text-slate-400 text-sm">Total tickets</div>
           <div class="text-3xl font-bold">${data.total}</div>
         </div>
-        <div class="bg-slate-800 p-4 rounded-lg">
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div class="text-slate-400 text-sm">Abiertos</div>
           <div class="text-3xl font-bold text-blue-400">${data.open}</div>
         </div>
-        <div class="bg-slate-800 p-4 rounded-lg">
-          <div class="text-slate-400 text-sm">Cerrados</div>
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
+          <div class="text-slate-400 text-sm">Resueltos</div>
           <div class="text-3xl font-bold text-green-400">${data.closed}</div>
         </div>
-        <div class="bg-slate-800 p-4 rounded-lg">
+        <div class="bg-slate-800 p-4 rounded-lg border border-slate-700">
           <div class="text-slate-400 text-sm">Empleados</div>
           <div class="text-3xl font-bold text-purple-400">${data.employees}</div>
         </div>
@@ -125,9 +126,7 @@
               </tr>
             </thead>
             <tbody>
-              ${data.topTickets
-                .map(
-                  (t) => `
+              ${data.topTickets.map(t => `
                 <tr class="border-t border-slate-700">
                   <td class="py-2 font-mono">#T-${t.id}</td>
                   <td>${t.title}</td>
@@ -135,9 +134,7 @@
                   <td><span class="px-2 py-0.5 rounded text-xs ${priorityColor[t.priority]}">${t.priority}</span></td>
                   <td>${t.score}/100</td>
                 </tr>
-              `
-                )
-                .join('')}
+              `).join('')}
             </tbody>
           </table>`
         : '<p class="text-slate-400">No hay tickets abiertos</p>';

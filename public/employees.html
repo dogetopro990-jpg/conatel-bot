@@ -2,21 +2,23 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Empleados - CONATEL</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 min-h-screen">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between">
+  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
     <div class="flex items-center gap-3">
       <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
       <h1 class="text-lg font-bold">CONATEL Panel</h1>
     </div>
-    <div class="flex gap-2 text-sm">
-      <a href="index.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="employees.html" class="px-3 py-1.5 bg-blue-600 rounded">Empleados</a>
-      <a href="messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    <div class="flex gap-2 text-sm flex-wrap">
+      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
+      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
+      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
+      <a href="/employees.html" class="px-3 py-1.5 bg-blue-600 rounded">Empleados</a>
+      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
+      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
     </div>
   </nav>
 
@@ -26,15 +28,15 @@
       <button onclick="openForm()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">+ Nuevo empleado</button>
     </div>
 
-    <div class="bg-slate-800 rounded-lg overflow-hidden">
+    <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
       <table class="w-full text-sm">
-        <thead class="bg-slate-700 text-left">
+        <thead class="bg-slate-900 text-left text-slate-400 uppercase text-xs">
           <tr>
-            <th class="p-3">Nombre</th>
-            <th class="p-3">Teléfono</th>
-            <th class="p-3">Área</th>
-            <th class="p-3">Cargo</th>
-            <th class="p-3">Acciones</th>
+            <th class="p-4">Nombre</th>
+            <th class="p-4">Teléfono</th>
+            <th class="p-4">Área</th>
+            <th class="p-4">Cargo</th>
+            <th class="p-4">Acciones</th>
           </tr>
         </thead>
         <tbody id="employees"></tbody>
@@ -43,7 +45,7 @@
   </main>
 
   <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-800 rounded-lg p-6 max-w-md w-full">
+    <div class="bg-slate-800 rounded-lg p-6 max-w-md w-full border border-slate-700">
       <div class="flex justify-between items-center mb-4">
         <h3 class="text-xl font-bold" id="modalTitle">Nuevo empleado</h3>
         <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
@@ -55,7 +57,7 @@
           <input id="fName" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
         </div>
         <div>
-          <label class="text-sm text-slate-400">Teléfono (con código país, sin +)</label>
+          <label class="text-sm text-slate-400">Teléfono (con código país)</label>
           <input id="fPhone" required placeholder="59170000000" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
         </div>
         <div>
@@ -81,22 +83,18 @@
       const employees = await res.json();
 
       document.getElementById('employees').innerHTML = employees.length
-        ? employees
-            .map(
-              (e) => `
+        ? employees.map(e => `
           <tr class="border-t border-slate-700 hover:bg-slate-700/50">
-            <td class="p-3">${e.name}</td>
-            <td class="p-3 font-mono">${e.phone}</td>
-            <td class="p-3 capitalize">${e.area}</td>
-            <td class="p-3">${e.role}</td>
-            <td class="p-3 space-x-2">
+            <td class="p-4">${e.name}</td>
+            <td class="p-4 font-mono">${e.phone}</td>
+            <td class="p-4 capitalize">${e.area}</td>
+            <td class="p-4">${e.role}</td>
+            <td class="p-4 space-x-2">
               <button onclick='editEmployee(${JSON.stringify(e)})' class="text-blue-400 hover:underline text-xs">Editar</button>
               <button onclick="deleteEmployee('${e.phone}')" class="text-red-400 hover:underline text-xs">Eliminar</button>
             </td>
           </tr>
-        `
-            )
-            .join('')
+        `).join('')
         : '<tr><td colspan="5" class="p-6 text-center text-slate-400">No hay empleados registrados</td></tr>';
     }
 
@@ -158,7 +156,7 @@
     }
 
     load();
-    setInterval(load, 5000);
+    setInterval(load, 10000);
   </script>
 </body>
 </html>

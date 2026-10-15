@@ -20,10 +20,10 @@
         <p class="text-xs text-slate-400">Gestión de Tickets</p>
       </div>
     </div>
-    <div class="flex gap-2 text-sm">
+    <div class="flex gap-2 text-sm flex-wrap">
       <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
       <a href="/tickets.html" class="px-3 py-1.5 bg-blue-600 rounded">Tickets</a>
-      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded text-green-400">✅ Resueltos</a>
+      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
       <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
       <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
       <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
@@ -43,7 +43,6 @@
         <option value="">Todos los estados</option>
         <option value="abierta">Abierta</option>
         <option value="en_progreso">En progreso</option>
-        <option value="cerrada">Cerrada</option>
       </select>
       <select id="filterArea" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
         <option value="">Todas las áreas</option>
@@ -58,7 +57,7 @@
         <option value="media">Media</option>
         <option value="baja">Baja</option>
       </select>
-      <input id="filterSearch" placeholder="Buscar (ID, título, nombre)..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
+      <input id="filterSearch" placeholder="Buscar..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
     </div>
 
     <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
@@ -77,7 +76,7 @@
             </tr>
           </thead>
           <tbody id="ticketsTableBody" class="divide-y divide-slate-700">
-            <tr><td colspan="8" class="p-8 text-center text-slate-500">Cargando datos...</td></tr>
+            <tr><td colspan="8" class="p-8 text-center text-slate-500">Cargando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -120,7 +119,7 @@
               <select id="newStatus" class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1">
                 <option value="abierta">Abierta</option>
                 <option value="en_progreso">En progreso</option>
-                <option value="cerrada">Cerrada</option>
+                <option value="cerrada">Cerrada (resolver)</option>
               </select>
             </div>
             <div>
@@ -169,16 +168,15 @@
         const ticketsData = await ticketsRes.json();
         const empData = await empRes.json();
 
-        // Asegurar que sean arrays
-        allTickets = Array.isArray(ticketsData) ? ticketsData : [];
+        allTickets = Array.isArray(ticketsData) ? ticketsData.filter(t => t.status !== 'cerrada') : [];
         allEmployees = Array.isArray(empData) ? empData : [];
 
-        console.log(`✅ Cargados: ${allTickets.length} tickets, ${allEmployees.length} empleados`);
+        console.log(`✅ Cargados: ${allTickets.length} tickets activos, ${allEmployees.length} empleados`);
         renderTickets();
       } catch (error) {
         console.error('❌ Error cargando datos:', error);
         document.getElementById('ticketsTableBody').innerHTML = 
-          `<tr><td colspan="8" class="p-8 text-center text-red-400">Error al cargar: ${error.message}<br>Revisa la consola (F12) para más detalles.</td></tr>`;
+          `<tr><td colspan="8" class="p-8 text-center text-red-400">Error al cargar: ${error.message}</td></tr>`;
       }
     }
 
@@ -204,7 +202,7 @@
 
       const tbody = document.getElementById('ticketsTableBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No se encontraron tickets con estos filtros.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No hay tickets activos</td></tr>`;
         return;
       }
 
@@ -229,7 +227,7 @@
           </td>
           <td class="p-4 text-slate-400">${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span class="italic text-slate-600">Sin asignar</span>'}</td>
           <td class="p-4 text-center">
-            <button onclick="viewTicket(${t.id})" class="text-blue-400 hover:bg-blue-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver detalle</button>
+            <button onclick="viewTicket(${t.id})" class="text-blue-400 hover:bg-blue-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver</button>
           </td>
         </tr>
       `).join('');
@@ -267,7 +265,7 @@
           `;
         }).join('');
       } else {
-        historyContainer.innerHTML = `<div class="text-sm text-slate-500 italic text-center py-4">Sin mensajes en el historial</div>`;
+        historyContainer.innerHTML = `<div class="text-sm text-slate-500 italic text-center py-4">Sin mensajes</div>`;
       }
 
       document.getElementById('newStatus').value = t.status;
@@ -296,10 +294,10 @@
           closeModal();
           await loadData();
         } else {
-          alert('Error al actualizar el ticket');
+          alert('Error al actualizar');
         }
       } catch (error) {
-        alert('Error de red al actualizar');
+        alert('Error de red');
       }
     }
 
@@ -313,11 +311,10 @@
           closeModal();
           await loadData();
         } else {
-          const err = await res.json();
-          alert(`Error al eliminar: ${err.error || 'Desconocido'}`);
+          alert('Error al eliminar');
         }
       } catch (error) {
-        alert('Error de red al eliminar');
+        alert('Error de red');
       }
     }
 
@@ -335,9 +332,7 @@
       if (e.target.id === 'modal') closeModal();
     });
 
-    // Carga inicial
     loadData();
-    // Auto-refresh cada 10 segundos
     setInterval(loadData, 10000);
   </script>
 </body>
