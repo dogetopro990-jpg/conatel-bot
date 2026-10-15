@@ -1,7 +1,7 @@
 const config = require('./config');
 const { toPhone, parseTicketTag, ticketTag, truncate, nowISO } = require('./utils');
-const { detectIntent, generateResponse, extractRegistration, getRandomResponse } = require('./ai');
-const { createTicket, appendUpdate } = require('./tickets');
+const { detectIntent, generateResponse, extractRegistrationData, getRandomResponse } = require('./ai');
+const { createTicket, appendUpdate, autoAssignAndNotify } = require('./tickets');
 const { refreshPriority } = require('./priority');
 
 class Handler {
@@ -387,7 +387,6 @@ class Handler {
     const activeTicketId = this.store.getActiveTicket(historyKey);
     const activeTicket = activeTicketId ? this.store.getTicket(activeTicketId) : null;
 
-    // Flujo de registro conversacional
     const sessionKey = `reg:${senderPhone}`;
     const session = this.store.getSession(sessionKey);
     
@@ -414,7 +413,6 @@ class Handler {
     console.log(`   Confianza: ${intent.confianza}%`);
     if (intent.area) console.log(`   Área: ${intent.area}`);
     if (intent.urgencia) console.log(`   Urgencia: ${intent.urgencia}`);
-    if (intent.info_completa !== undefined) console.log(`   Info completa: ${intent.info_completa}`);
 
     this.addToHistory(historyKey, 'user', text);
 
@@ -457,14 +455,43 @@ class Handler {
 
     switch (session.step) {
       case 'pedir_nombre': {
-        // Extraer nombre del mensaje
-        const nombre = text.trim();
+        const extracted = await extractRegistrationData(text);
         
-        if (nombre.length < 2) {
+        console.log(`   🧠 Datos extraídos:`, extracted);
+        
+        if (!extracted.nombre || extracted.nombre.length < 2) {
           return 'No entendí el nombre. ¿Cómo te llamas?';
         }
 
-        data.nombre = nombre;
+        data.nombre = extracted.nombre;
+        
+        if (extracted.area && extracted.cargo) {
+          data.area = extracted.area;
+          data.cargo = extracted.cargo;
+          
+          this.store.upsertEmployee(senderPhone, {
+            name: data.nombre,
+            area: data.area,
+            role: data.cargo,
+            registeredAt: nowISO()
+          });
+
+          this.store.setSession(sessionKey, null);
+          await this.store.save();
+
+          console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
+
+          const transicion = getRandomResponse('transicion_a_solicitud', { nombre: data.nombre.split(' ')[0] });
+          return transicion;
+        }
+
+        if (extracted.area) {
+          data.area = extracted.area;
+          this.store.setSession(sessionKey, { step: 'pedir_cargo', data });
+          await this.store.save();
+          return getRandomResponse('pedir_cargo');
+        }
+
         this.store.setSession(sessionKey, { step: 'pedir_area', data });
         await this.store.save();
 
@@ -494,7 +521,6 @@ class Handler {
 
         data.cargo = cargo;
 
-        // Guardar empleado con teléfono automático
         this.store.upsertEmployee(senderPhone, {
           name: data.nombre,
           area: data.area,
@@ -507,8 +533,7 @@ class Handler {
 
         console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
 
-        // Transición a solicitud
-        const transicion = getRandomResponse('transicion_a_solicitud', { nombre: data.nombre });
+        const transicion = getRandomResponse('transicion_a_solicitud', { nombre: data.nombre.split(' ')[0] });
         return transicion;
       }
 
@@ -533,7 +558,6 @@ class Handler {
 
     switch (intent.intencion) {
       case 'saludo': {
-        // Si no está registrado, iniciar flujo de registro
         if (!employee) {
           const sessionKey = `reg:${senderPhone}`;
           this.store.setSession(sessionKey, { step: 'pedir_nombre', data: {} });
@@ -541,15 +565,23 @@ class Handler {
           
           response = getRandomResponse('saludo');
         } else {
-          // Ya está registrado, transición directa
-          response = getRandomResponse('transicion_a_solicitud', { nombre: employee.name });
+          // Usar solo el primer nombre, o a veces omitirlo
+          if (Math.random() > 0.5 && employee.name) {
+            const firstName = employee.name.split(' ')[0];
+            response = getRandomResponse('transicion_a_solicitud', { nombre: firstName });
+          } else {
+            response = getRandomResponse('transicion_a_solicitud', { nombre: '' }).replace(/^Bien\s+|Perfecto\s+|Listo\s+|Ok\s+/, '').trim();
+            // Si quedó vacío, usar una respuesta sin nombre
+            if (!response) {
+              response = '¿En qué te puedo ayudar?';
+            }
+          }
         }
         break;
       }
 
       case 'crear_ticket': {
         if (!employee) {
-          // Iniciar flujo de registro
           const sessionKey = `reg:${senderPhone}`;
           this.store.setSession(sessionKey, { 
             step: 'pedir_nombre', 
@@ -562,7 +594,6 @@ class Handler {
           break;
         }
 
-        // Si falta área pero hay descripción, crear con área por defecto
         const area = intent.area || 'soporte';
         const urgencia = intent.urgencia || 'media';
 
@@ -580,9 +611,38 @@ class Handler {
           originalText: text
         });
 
+        // Asignación automática y notificación con delay de 10 min
+        const assignee = autoAssignAndNotify({
+          store: this.store,
+          ticket,
+          sendText: this.sendText,
+          logger: this.logger,
+          delayMs: 10 * 60 * 1000
+        });
+
         await this.store.save();
         console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
-        response = `✅ Ticket #T-${ticket.id} creado. Área: ${ticket.area}. Urgencia: ${ticket.urgency}. Lo tenemos en seguimiento.`;
+
+        // Respuestas variadas y naturales
+        const responses = [
+          'Entendido, lo voy a revisar y te aviso.',
+          'Ok, ya lo tengo registrado. Te aviso cuando tenga novedades.',
+          'Perfecto, lo estamos viendo. Te mantengo informado.',
+          'Listo, ya lo anoté. Te aviso apenas tenga respuesta.',
+          'Entendido, lo revisamos y te contamos.',
+          'Ok, ya está registrado. Te aviso cuando haya avances.',
+          'Perfecto, lo tenemos en seguimiento.',
+          'Listo, ya lo estamos viendo. Te aviso pronto.'
+        ];
+
+        // 50% de probabilidad de usar el primer nombre, 50% sin nombre
+        if (Math.random() > 0.5 && employee.name) {
+          const firstName = employee.name.split(' ')[0];
+          const baseResponse = responses[Math.floor(Math.random() * responses.length)];
+          response = `${firstName}, ${baseResponse.charAt(0).toLowerCase()}${baseResponse.slice(1)}`;
+        } else {
+          response = responses[Math.floor(Math.random() * responses.length)];
+        }
         break;
       }
 
@@ -622,7 +682,15 @@ class Handler {
 
         await this.store.save();
         console.log(`   📝 Ticket actualizado: #T-${ticket.id}`);
-        response = `✅ Información agregada al ticket #T-${ticket.id}.`;
+        
+        const updateResponses = [
+          'Listo, tomé nota y lo agrego al ticket.',
+          'Ok, lo anoto en el ticket.',
+          'Perfecto, actualicé el ticket con lo que me dices.',
+          'Entendido, lo agrego al ticket.',
+          'Anotado, lo agrego al ticket.'
+        ];
+        response = updateResponses[Math.floor(Math.random() * updateResponses.length)];
         break;
       }
 
