@@ -46,9 +46,6 @@
       </select>
       <select id="filterArea" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
         <option value="">Todas las áreas</option>
-        <option value="soporte">Soporte</option>
-        <option value="infraestructura">Infraestructura</option>
-        <option value="desarrollo">Desarrollo</option>
       </select>
       <select id="filterPriority" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
         <option value="">Todas las prioridades</option>
@@ -129,6 +126,10 @@
               </select>
             </div>
           </div>
+          <div id="observacionesContainer" class="hidden">
+            <label class="text-xs text-slate-400">Observaciones al cerrar (se enviarán al solicitante)</label>
+            <textarea id="observaciones" rows="3" placeholder="Ej: Se reemplazó el cable de red. Problema resuelto." class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1"></textarea>
+          </div>
           <div class="flex gap-3">
             <button onclick="updateTicket()" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg font-semibold">💾 Guardar</button>
             <button onclick="deleteTicket()" class="bg-red-600 hover:bg-red-700 py-2.5 px-6 rounded-lg font-semibold">🗑️ Eliminar</button>
@@ -153,30 +154,33 @@
 
     let allTickets = [];
     let allEmployees = [];
+    let allAreas = [];
     let currentTicketId = null;
 
     async function loadData() {
       try {
-        const [ticketsRes, empRes] = await Promise.all([
+        const [ticketsRes, empRes, areasRes] = await Promise.all([
           fetch('/api/tickets'),
-          fetch('/api/employees')
+          fetch('/api/employees'),
+          fetch('/api/areas')
         ]);
         
-        if (!ticketsRes.ok) throw new Error(`API Tickets: ${ticketsRes.status}`);
-        if (!empRes.ok) throw new Error(`API Empleados: ${empRes.status}`);
+        allTickets = await ticketsRes.json();
+        allEmployees = await empRes.json();
+        allAreas = await areasRes.json();
 
-        const ticketsData = await ticketsRes.json();
-        const empData = await empRes.json();
+        // Actualizar filtro de áreas
+        const areaFilter = document.getElementById('filterArea');
+        const currentValue = areaFilter.value;
+        areaFilter.innerHTML = '<option value="">Todas las áreas</option>' + 
+          allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
+        areaFilter.value = currentValue;
 
-        allTickets = Array.isArray(ticketsData) ? ticketsData.filter(t => t.status !== 'cerrada') : [];
-        allEmployees = Array.isArray(empData) ? empData : [];
-
-        console.log(`✅ Cargados: ${allTickets.length} tickets activos, ${allEmployees.length} empleados`);
         renderTickets();
       } catch (error) {
-        console.error('❌ Error cargando datos:', error);
+        console.error('❌ Error:', error);
         document.getElementById('ticketsTableBody').innerHTML = 
-          `<tr><td colspan="8" class="p-8 text-center text-red-400">Error al cargar: ${error.message}</td></tr>`;
+          `<tr><td colspan="8" class="p-8 text-center text-red-400">Error al cargar</td></tr>`;
       }
     }
 
@@ -202,7 +206,7 @@
 
       const tbody = document.getElementById('ticketsTableBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No hay tickets activos</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No hay tickets</td></tr>`;
         return;
       }
 
@@ -214,7 +218,7 @@
             <div>${t.requesterName || 'Desconocido'}</div>
             <div class="text-xs text-slate-500">${t.requesterPhone}</div>
           </td>
-          <td class="p-4 capitalize">${t.area}</td>
+          <td class="p-4">${t.area}</td>
           <td class="p-4">
             <span class="px-2 py-1 rounded-full text-xs ${priorityColors[t.priorityLevel] || priorityColors.media}">
               ${t.priorityLevel} (${t.score})
@@ -269,12 +273,30 @@
       }
 
       document.getElementById('newStatus').value = t.status;
+      document.getElementById('observaciones').value = '';
+      
       const assigneeSelect = document.getElementById('newAssignee');
       assigneeSelect.innerHTML = '<option value="">Sin asignar</option>';
       allEmployees.filter(e => e.area === t.area).forEach(emp => {
         const selected = t.assignedTo === emp.phone ? 'selected' : '';
         assigneeSelect.innerHTML += `<option value="${emp.phone}" ${selected}>${emp.name} (${emp.role})</option>`;
       });
+
+      // Toggle observaciones
+      const statusSelect = document.getElementById('newStatus');
+      const observacionesContainer = document.getElementById('observacionesContainer');
+      
+      function toggleObservaciones() {
+        if (statusSelect.value === 'cerrada') {
+          observacionesContainer.classList.remove('hidden');
+        } else {
+          observacionesContainer.classList.add('hidden');
+        }
+      }
+      
+      statusSelect.removeEventListener('change', toggleObservaciones);
+      statusSelect.addEventListener('change', toggleObservaciones);
+      toggleObservaciones();
 
       document.getElementById('modal').classList.remove('hidden');
     }
@@ -283,12 +305,18 @@
       if (!currentTicketId) return;
       const status = document.getElementById('newStatus').value;
       const assignedTo = document.getElementById('newAssignee').value || null;
+      const observaciones = document.getElementById('observaciones').value.trim();
+
+      const body = { status, assignedTo };
+      if (status === 'cerrada' && observaciones) {
+        body.observaciones = observaciones;
+      }
 
       try {
         const res = await fetch(`/api/tickets/${currentTicketId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, assignedTo })
+          body: JSON.stringify(body)
         });
         if (res.ok) {
           closeModal();
@@ -303,7 +331,7 @@
 
     async function deleteTicket() {
       if (!currentTicketId) return;
-      if (!confirm(`¿Eliminar ticket #T-${currentTicketId}? Esta acción no se puede deshacer.`)) return;
+      if (!confirm(`¿Eliminar ticket #T-${currentTicketId}?`)) return;
 
       try {
         const res = await fetch(`/api/tickets/${currentTicketId}`, { method: 'DELETE' });

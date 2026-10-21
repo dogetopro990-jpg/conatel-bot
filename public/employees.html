@@ -63,9 +63,7 @@
         <div>
           <label class="text-sm text-slate-400">Área</label>
           <select id="fArea" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1">
-            <option value="soporte">Soporte</option>
-            <option value="infraestructura">Infraestructura</option>
-            <option value="desarrollo">Desarrollo</option>
+            <!-- Se cargan dinámicamente -->
           </select>
         </div>
         <div>
@@ -78,6 +76,13 @@
   </div>
 
   <script>
+    async function loadAreas() {
+      const res = await fetch('/api/areas');
+      const areas = await res.json();
+      const select = document.getElementById('fArea');
+      select.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
+    }
+
     async function load() {
       const res = await fetch('/api/employees');
       const employees = await res.json();
@@ -87,7 +92,7 @@
           <tr class="border-t border-slate-700 hover:bg-slate-700/50">
             <td class="p-4">${e.name}</td>
             <td class="p-4 font-mono">${e.phone}</td>
-            <td class="p-4 capitalize">${e.area}</td>
+            <td class="p-4">${e.area}</td>
             <td class="p-4">${e.role}</td>
             <td class="p-4 space-x-2">
               <button onclick='editEmployee(${JSON.stringify(e)})' class="text-blue-400 hover:underline text-xs">Editar</button>
@@ -155,6 +160,7 @@
       document.getElementById('modal').classList.add('hidden');
     }
 
+    loadAreas();
     load();
     setInterval(load, 10000);
   </script>

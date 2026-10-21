@@ -49,9 +49,6 @@
             <label class="text-sm text-slate-400">Área</label>
             <select id="aArea" class="w-full bg-slate-700 px-3 py-2 rounded mt-1">
               <option value="">Todos los empleados</option>
-              <option value="soporte">Soporte</option>
-              <option value="infraestructura">Infraestructura</option>
-              <option value="desarrollo">Desarrollo</option>
             </select>
           </div>
           <div>
@@ -71,11 +68,26 @@
   </main>
 
   <script>
-    async function loadEmployees() {
-      const res = await fetch('/api/employees');
-      const employees = await res.json();
+    async function loadAreas() {
+      const res = await fetch('/api/areas');
+      const areas = await res.json();
+      const select = document.getElementById('aArea');
+      select.innerHTML = '<option value="">Todos los empleados</option>' + 
+        areas.map(a => `<option value="${a}">${a}</option>`).join('');
+    }
 
-      const byArea = { soporte: [], infraestructura: [], desarrollo: [] };
+    async function loadEmployees() {
+      const [empRes, areasRes] = await Promise.all([
+        fetch('/api/employees'),
+        fetch('/api/areas')
+      ]);
+      
+      const employees = await empRes.json();
+      const areas = await areasRes.json();
+
+      const byArea = {};
+      areas.forEach(a => byArea[a] = []);
+      
       employees.forEach((e) => {
         if (byArea[e.area]) byArea[e.area].push(e);
       });
@@ -83,7 +95,7 @@
       document.getElementById('areaList').innerHTML = Object.entries(byArea)
         .map(([area, list]) => `
           <div class="bg-slate-900 p-4 rounded border border-slate-700">
-            <h4 class="font-bold capitalize mb-2">${area} (${list.length})</h4>
+            <h4 class="font-bold mb-2">${area} (${list.length})</h4>
             ${list.length
               ? list.map(e => `
                 <div class="text-sm py-1 border-b border-slate-700 last:border-0">
@@ -133,6 +145,7 @@
       if (data.sent > 0) document.getElementById('aText').value = '';
     });
 
+    loadAreas();
     loadEmployees();
     setInterval(loadEmployees, 10000);
   </script>
