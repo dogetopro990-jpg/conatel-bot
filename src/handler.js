@@ -447,7 +447,7 @@ class Handler {
     return naturalResponse;
   }
 
-  async handleRegistrationFlow({ chatId, senderPhone, senderName, text, session, history }) {
+    async handleRegistrationFlow({ chatId, senderPhone, senderName, text, session, history }) {
     const sessionKey = `reg:${senderPhone}`;
     const data = session.data || {};
 
@@ -482,6 +482,28 @@ class Handler {
           console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
 
           const firstName = data.nombre.split(' ')[0];
+          
+          // Si hay pendingRequest, procesarlo
+          if (session.pendingRequest) {
+            const pendingText = session.pendingRequest;
+            const intent = await detectIntent(pendingText, { 
+              employee: this.store.getEmployee(senderPhone), 
+              activeTicket: null 
+            });
+            
+            const { ticket, response } = await this.executeIntent({
+              intent,
+              chatId,
+              senderPhone,
+              senderName,
+              text: pendingText,
+              employee: this.store.getEmployee(senderPhone),
+              activeTicket: null
+            });
+            
+            if (response) return response;
+          }
+          
           const transicion = getRandomResponse('transicion_a_solicitud', { nombre: firstName });
           return transicion;
         }
@@ -503,7 +525,8 @@ class Handler {
         const area = this.extractArea(text);
         
         if (!area) {
-          return 'No entendí el área. ¿Trabajas en soporte, infraestructura o desarrollo?';
+          const areasList = config.areas.join(', ');
+          return `No entendí el área. Las áreas disponibles son: ${areasList}. ¿En cuál trabajas?`;
         }
 
         data.area = area;
@@ -546,11 +569,51 @@ class Handler {
     }
   }
 
-  extractArea(text) {
-    const t = text.toLowerCase();
-    if (t.includes('soporte')) return 'soporte';
-    if (t.includes('infra')) return 'infraestructura';
-    if (t.includes('desarr')) return 'desarrollo';
+      extractArea(text) {
+    const t = text.toLowerCase().trim();
+    // Normalizar: elimina tildes y caracteres especiales para facilitar la coincidencia
+    const normalized = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+    // Lista de tus áreas exactas
+    const areas = [
+      'DIGER', 'DISET', 'DIREM', 'LEGAL', 'SECRETARIA', 
+      'Servicios Generales', 'Proteccion al usuario', 'Compras', 
+      'Bienes', 'Cartera y cobranza', 'Contabilidad', 
+      'Gerencia General', 'Comision', 'DIPLADE', 'Comunicaciones'
+    ];
+
+    for (const area of areas) {
+      const areaLower = area.toLowerCase();
+      const areaNormalized = areaLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      
+      // 1. Coincidencia exacta o normalizada
+      if (t === areaLower || normalized === areaNormalized) return area;
+      
+      // 2. Coincidencia parcial (el texto contiene el área o viceversa)
+      if (t.includes(areaLower) || areaLower.includes(t) || 
+          normalized.includes(areaNormalized) || areaNormalized.includes(normalized)) {
+        return area;
+      }
+    }
+    
+    // 3. Fallbacks por palabras clave específicas (por si el usuario escribe algo abreviado)
+    if (t.includes('servicio') || t.includes('general') || t.includes('servvicio')) return 'Servicios Generales';
+    if (t.includes('proteccion') || t.includes('usuario')) return 'Proteccion al usuario';
+    if (t.includes('cartera') || t.includes('cobranza')) return 'Cartera y cobranza';
+    if (t.includes('contab')) return 'Contabilidad';
+    if (t.includes('gerencia')) return 'Gerencia General';
+    if (t.includes('compra')) return 'Compras';
+    if (t.includes('bien')) return 'Bienes';
+    if (t.includes('comision')) return 'Comision';
+    if (t.includes('diplade')) return 'DIPLADE';
+    if (t.includes('comunicacion')) return 'Comunicaciones';
+    if (t.includes('diger')) return 'DIGER';
+    if (t.includes('diset')) return 'DISET';
+    if (t.includes('direm')) return 'DIREM';
+    if (t.includes('legal') || t.includes('juridic')) return 'LEGAL';
+    if (t.includes('secretaria')) return 'SECRETARIA';
+
+    console.log(`   ⚠️  Área no detectada en: "${text}"`);
     return null;
   }
 
