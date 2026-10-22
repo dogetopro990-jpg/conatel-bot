@@ -40,12 +40,15 @@ const RESPONSES = {
     'Hola {nombre}, dime en qué te puedo ayudar.'
   ],
   pedir_area: [
-    '¿En qué área trabajas: soporte, infraestructura o desarrollo?',
-    '¿A qué área perteneces?'
+    'Perfecto {nombre}, ¿en qué área trabajas?',
+    'Genial {nombre}, ¿a qué área perteneces?',
+    'Ok {nombre}, ¿cuál es tu área de trabajo?',
+    'Entendido {nombre}, ¿en qué área estás?'
   ],
   pedir_cargo: [
     '¿Cuál es tu cargo o puesto?',
-    '¿Qué cargo tienes en la empresa?'
+    '¿Qué cargo tienes en la empresa?',
+    '¿Me puedes decir tu cargo?'
   ],
   transicion_a_solicitud: [
     'Bien {nombre}, ¿qué necesitas?',
@@ -105,12 +108,32 @@ function getRandomResponse(category, replacements = {}) {
 // ============ UTILIDADES ============
 
 function safeArea(value) {
+  if (!value) return null;
   const area = normalizeText(value || '');
   if (!area) return null;
-  if (area.includes('infra')) return 'infraestructura';
-  if (area.includes('desarr') || area.includes('software') || area.includes('dev')) return 'desarrollo';
-  if (area.includes('soporte') || area.includes('mesa') || area.includes('helpdesk') || area.includes('ti')) return 'soporte';
-  if (config.areas.includes(area)) return area;
+  
+  // Buscar coincidencia exacta o parcial con las áreas configuradas
+  for (const configuredArea of config.areas) {
+    const normalizedConfig = normalizeText(configuredArea);
+    if (area === normalizedConfig || area.includes(normalizedConfig) || normalizedConfig.includes(area)) {
+      return configuredArea;
+    }
+  }
+  
+  // Alias comunes
+  if (area.includes('infra')) return config.areas.find(a => a.toLowerCase().includes('comunicacion')) || 'Comunicaciones';
+  if (area.includes('desarr') || area.includes('software') || area.includes('sistema')) return 'DISET';
+  if (area.includes('soporte') || area.includes('mesa') || area.includes('helpdesk')) return 'DISET';
+  if (area.includes('gerencia')) return 'Gerencia General';
+  if (area.includes('compra')) return 'Compras';
+  if (area.includes('contab')) return 'Contabilidad';
+  if (area.includes('legal') || area.includes('juridic')) return 'LEGAL';
+  if (area.includes('secret')) return 'SECRETARIA';
+  if (area.includes('cartera') || area.includes('cobranza')) return 'Cartera y cobranza';
+  if (area.includes('bien')) return 'Bienes';
+  if (area.includes('servicio')) return 'Servicios Generales';
+  if (area.includes('proteccion') || area.includes('usuario')) return 'Proteccion al usuario';
+  
   return null;
 }
 
@@ -129,7 +152,7 @@ function extractJson(text = '') {
   return null;
 }
 
-// ============ GEMINI CON TIMEOUT REDUCIDO ============
+// ============ GEMINI ============
 
 let lastGeminiCall = 0;
 const GEMINI_MIN_INTERVAL = 1000;
@@ -163,9 +186,8 @@ async function gemini(prompt, { json = true } = {}) {
   };
   if (json) body.generationConfig.responseMimeType = 'application/json';
 
-  // ✅ TIMEOUT REDUCIDO: 8 segundos en lugar de 15
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 8000);
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
     const response = await fetch(url, {
@@ -210,21 +232,43 @@ function detectUrgencyFromText(text) {
   return 'media';
 }
 
+// ============ EXTRACCIÓN MEJORADA DE NOMBRES ============
+
 function extractNameLocal(text) {
   const t = text.trim();
+  
+  // Patrones más flexibles para extraer nombres
   const patterns = [
-    /(?:soy|me\s?llamo|mi\s?nombre\s?es)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,3})/i,
-    /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,3})/i,
-    /hola[,.\s]+soy\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,3})/i
+    // "Con [Nombre]" - muy común en español
+    /(?:^|\b)(?:con|soy|me\s?llamo|mi\s?nombre\s?es|soy\s+el|soy\s+la)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
+    // Nombre al inicio del mensaje
+    /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})/i,
+    // "Hola, soy [Nombre]"
+    /hola[,.\s]+(?:soy|me\s?llamo)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
+    // Nombre después de coma o punto
+    /[,.\s]+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})/i,
+    // "Soy [Nombre]" en cualquier parte
+    /\bsoy\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
+    // "Me llamo [Nombre]"
+    /\bme\s+llamo\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
+    // "Mi nombre es [Nombre]"
+    /\bmi\s+nombre\s+es\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i
   ];
+  
   for (const pattern of patterns) {
     const match = t.match(pattern);
     if (match && match[1]) {
       const name = match[1].trim();
-      const common = /^(hola|buenos|buenas|gracias|ok|si|no|que|como|cuando|por|para|con|sin|de|del|la|el|los|las|un|una|es|esta)/i;
-      if (name.length > 2 && !common.test(name)) return name;
+      // Filtrar palabras comunes que no son nombres
+      const common = /^(hola|buenos|buenas|gracias|ok|si|no|que|como|cuando|por|para|con|sin|de|del|la|el|los|las|un|una|es|esta|este|estos|estas|yo|tu|el|ella|nosotros|ellos|usted|ustedes)/i;
+      if (name.length > 2 && !common.test(name)) {
+        console.log(`   ✅ Nombre detectado: "${name}"`);
+        return name;
+      }
     }
   }
+  
+  console.log(`   ⚠️  No se detectó nombre en: "${text}"`);
   return null;
 }
 
@@ -240,14 +284,24 @@ function extractCargoLocal(text) {
   return null;
 }
 
+// ============ EXTRACCIÓN INTELIGENTE DE DATOS ============
+
 async function extractRegistrationData(text) {
   console.log(`   🔍 Extrayendo datos...`);
+  
+  // Primero intentar con métodos locales
   let nombre = extractNameLocal(text);
   let area = safeArea(text);
   let cargo = extractCargoLocal(text);
 
+  // Si falta algo importante, intentar con Gemini
   if (!nombre || !area) {
-    const prompt = `Extrae del mensaje: {"nombre":"string","area":"soporte|infraestructura|desarrollo","cargo":"string"}. Solo JSON. Mensaje: "${text}"`;
+    const areasList = config.areas.join(', ');
+    const prompt = `Extrae del mensaje: {"nombre":"string","area":"string|null","cargo":"string"}. 
+El área debe ser una de: ${areasList}. 
+Solo JSON. 
+Mensaje: "${text}"`;
+    
     const ai = await gemini(prompt, { json: true });
     if (ai) {
       nombre = ai.nombre || nombre;
@@ -260,46 +314,65 @@ async function extractRegistrationData(text) {
   return { nombre, area, cargo };
 }
 
-// ============ DETECTAR INTENCIÓN (PRIORIDAD CORREGIDA) ============
+// ============ DETECTAR INTENCIÓN ============
 
 function fallbackDetectIntent(text, context = {}) {
   const t = normalizeText(text);
   const ticketId = parseTicketTag(text);
 
-  // ✅ PRIORIDAD 1: Saludos (siempre detectar primero, incluso con ticket activo)
+  // PRIORIDAD 1: Saludos
   if (/^(hola|buenos?\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/i.test(t)) {
     return { intencion: 'saludo', confianza: 95 };
   }
 
-  // ✅ PRIORIDAD 2: Agradecimientos
+  // PRIORIDAD 2: Agradecimientos
   if (/\b(gracias|muchas?\s?gracias|te\s?agradezco|thank)\b/i.test(t)) {
     return { intencion: 'agradecimiento', confianza: 90 };
   }
 
-  // ✅ PRIORIDAD 3: Despedidas
+  // PRIORIDAD 3: Despedidas
   if (/\b(adios|chao|hasta\s?(luego|pronto)|nos\s?vemos|bye)\b/i.test(t)) {
     return { intencion: 'despedida', confianza: 90 };
   }
 
-  // ✅ PRIORIDAD 4: Tag de ticket explícito
+  // PRIORIDAD 4: Tag de ticket explícito (#T-123)
   if (ticketId) {
     return { intencion: 'actualizar_ticket', ticket_id: ticketId, urgencia: detectUrgencyFromText(text), descripcion: text, confianza: 85 };
   }
 
-  // ✅ PRIORIDAD 5: Aclaración (solo si hay ticket activo Y el mensaje es corto Y no es saludo)
-  if (context.activeTicket && t.length < 50 && !ticketId) {
-    return { intencion: 'aclaracion', ticket_id: context.activeTicket.id, area: null, urgencia: null, descripcion: text, confianza: 75 };
+  // PRIORIDAD 5: Referencias a "ticket anterior" o "el ticket" con ticket activo
+  if (context.activeTicket) {
+    const ticketRef = /(ticket\s+(anterior|activo|actual|este)|el\s+ticket|mi\s+ticket|actualizar|agregar|añadir|informar|comentar)/i;
+    
+    if (ticketRef.test(t)) {
+      console.log(`   🎯 Referencia a ticket activo detectada: #T-${context.activeTicket.id}`);
+      return { 
+        intencion: 'actualizar_ticket', 
+        ticket_id: context.activeTicket.id, 
+        urgencia: detectUrgencyFromText(text), 
+        descripcion: text, 
+        confianza: 90 
+      };
+    }
+    
+    // Si hay ticket activo y el mensaje es corto, probablemente es una aclaración
+    if (t.length < 100) {
+      return { 
+        intencion: 'aclaracion', 
+        ticket_id: context.activeTicket.id, 
+        area: null, 
+        urgencia: null, 
+        descripcion: text, 
+        confianza: 75 
+      };
+    }
   }
 
   // Detectar área
-  let area = null;
-  if (/(infraestructura|red|internet|wifi|servidor|cable|switch|router|vpn)/.test(t)) area = 'infraestructura';
-  else if (/(desarrollo|software|sistema|bug|api|base\s?de\s?datos|codigo|aplicacion)/.test(t)) area = 'desarrollo';
-  else if (/(soporte|correo|contrasena|acceso|office|excel|word|impresora|tinta|toner)/.test(t)) area = 'soporte';
-
+  let area = safeArea(text);
   const urgencia = detectUrgencyFromText(text);
 
-  // ✅ REGEX MEJORADO: Detecta más problemas comunes
+  // Detectar problemas
   const problemKeywords = /(no\s?(puedo|funciona|hay|entra|sirve|anda|imprime|conecta|carga)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo|tinta|toner)|computadora|pc|equipo|molestia|molesto|lento|demora|no\s?me\s?deja|no\s?puedo\s?acceder|no\s?carga|no\s?conecta|impresora|tinta|toner|falta|se\s?quedo|se\s?queda|papel|atascada|no\s?imprime|no\s?escanea|no\s?copia)/i;
   
   if (problemKeywords.test(t) && t.length >= 5) {
@@ -315,7 +388,7 @@ function fallbackDetectIntent(text, context = {}) {
     };
   }
 
-  // ✅ Detectar solicitudes indirectas
+  // Solicitudes indirectas
   const indirectProblem = /(le\s?hace\s?falta|le\s?falta|necesita|requiere|se\s?acabo|se\s?termino|sin\s+\w+|no\s?tengo)/i;
   if (indirectProblem.test(t) && t.length >= 5) {
     console.log(`   🎯 Solicitud indirecta detectada: ${t.substring(0, 50)}...`);
@@ -340,24 +413,24 @@ function fallbackDetectIntent(text, context = {}) {
 async function detectIntent(text, { employee, activeTicket, history = [] }) {
   const fallback = fallbackDetectIntent(text, { activeTicket });
 
-  // ✅ Si el fallback detecta algo con confianza >= 75, usarlo directamente
   if (fallback.confianza >= 75) {
     console.log(`   ✅ Fallback (${fallback.confianza}%)`);
     return fallback;
   }
 
-  // Solo usar Gemini si el fallback tiene baja confianza
   console.log(`   🤖 Usando Gemini...`);
   const historyText = history.slice(-4).map(m => `${m.from === 'bot' ? 'Bot' : 'Usuario'}: ${m.text}`).join(' | ');
+  const areasList = config.areas.join(', ');
 
   const prompt = `Clasifica el mensaje en un chat de soporte CONATEL.
 Contexto: ${historyText || '(inicio)'}
 Mensaje: "${text}"
 Usuario: ${employee ? employee.name : 'no'}
 Ticket activo: ${activeTicket ? '#' + activeTicket.id : 'no'}
+Áreas disponibles: ${areasList}
 
 Devuelve JSON:
-{"intencion":"saludo|crear_ticket|actualizar_ticket|consulta|agradecimiento|despedida|aclaracion|otro","area":"soporte|infraestructura|desarrollo|null","urgencia":"baja|media|alta|critica|null","titulo":"string|null","descripcion":"string|null","confianza":0,"es_problema":false}`;
+{"intencion":"saludo|crear_ticket|actualizar_ticket|consulta|agradecimiento|despedida|aclaracion|otro","area":"string|null","urgencia":"baja|media|alta|critica|null","titulo":"string|null","descripcion":"string|null","confianza":0,"es_problema":false}`;
 
   const ai = await gemini(prompt, { json: true });
 

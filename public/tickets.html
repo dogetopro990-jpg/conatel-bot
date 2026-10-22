@@ -3,136 +3,295 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tickets - CONATEL Panel</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Tickets - CONATEL</title>
+  <link rel="stylesheet" href="/css/theme.css" />
   <style>
-    .custom-scroll::-webkit-scrollbar { width: 6px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: 400px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 16px;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      background: var(--bg-tertiary);
+    }
+    
+    .chat-message {
+      margin-bottom: 12px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .chat-message.user {
+      align-items: flex-end;
+    }
+    
+    .chat-message.bot {
+      align-items: flex-start;
+    }
+    
+    .chat-bubble {
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+    }
+    
+    .chat-message.user .chat-bubble {
+      background: var(--accent);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .chat-message.bot .chat-bubble {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    
+    .chat-meta {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+    
+    .chat-input {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-top: 1px solid var(--border);
+    }
+    
+    .chat-input input {
+      flex: 1;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .info-item {
+      background: var(--bg-tertiary);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .info-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    
+    .info-value {
+      font-size: 14px;
+      font-weight: 500;
+    }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold text-lg">C</div>
-      <div>
-        <h1 class="text-lg font-bold">CONATEL Panel</h1>
-        <p class="text-xs text-slate-400">Gestión de Tickets</p>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">C</div>
+      <div class="nav-title">
+        <h1>CONATEL Panel</h1>
+        <p>Sistema de Gestión de Tickets</p>
       </div>
     </div>
-    <div class="flex gap-2 text-sm flex-wrap">
-      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="/tickets.html" class="px-3 py-1.5 bg-blue-600 rounded">Tickets</a>
-      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
-      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
-      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="tickets.html" class="active">Tickets</a>
+      <a href="resolved.html">Resueltos</a>
+      <a href="employees.html">Empleados</a>
+      <a href="messages.html">Mensajes</a>
+      <a href="settings.html" id="settingsLink">Config</a>
+      <a href="users.html" id="usersLink">Usuarios</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <div class="user-info">
+        <span id="userName">Usuario</span>
+        <span id="userRole" class="badge badge-info"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
     </div>
   </nav>
 
-  <main class="max-w-7xl mx-auto p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold flex items-center gap-2">
-        🎫 Tickets <span id="ticketCount" class="text-sm bg-slate-700 px-2 py-0.5 rounded-full">0</span>
-      </h2>
-      <button onclick="loadData()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm">🔄 Actualizar</button>
+  <main>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h2 style="font-size: 28px; font-weight: 600;">Tickets Activos <span id="ticketCount" class="badge badge-info">0</span></h2>
+      <button class="btn btn-secondary" onclick="loadData()">🔄 Actualizar</button>
     </div>
 
-    <div class="bg-slate-800 rounded-lg p-4 mb-6 flex flex-wrap gap-3 border border-slate-700">
-      <select id="filterStatus" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
-        <option value="">Todos los estados</option>
-        <option value="abierta">Abierta</option>
-        <option value="en_progreso">En progreso</option>
-      </select>
-      <select id="filterArea" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
-        <option value="">Todas las áreas</option>
-      </select>
-      <select id="filterPriority" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
-        <option value="">Todas las prioridades</option>
-        <option value="critica">Crítica</option>
-        <option value="alta">Alta</option>
-        <option value="media">Media</option>
-        <option value="baja">Baja</option>
-      </select>
-      <input id="filterSearch" placeholder="Buscar..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
-    </div>
-
-    <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left">
-          <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
-            <tr>
-              <th class="p-4">ID</th>
-              <th class="p-4">Título</th>
-              <th class="p-4">Solicitante</th>
-              <th class="p-4">Área</th>
-              <th class="p-4">Prioridad</th>
-              <th class="p-4">Estado</th>
-              <th class="p-4">Asignado</th>
-              <th class="p-4 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="ticketsTableBody" class="divide-y divide-slate-700">
-            <tr><td colspan="8" class="p-8 text-center text-slate-500">Cargando...</td></tr>
-          </tbody>
-        </table>
+    <div class="card" style="margin-bottom: 24px;">
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <select id="filterStatus" style="max-width: 200px;">
+          <option value="">Todos los estados</option>
+          <option value="abierta">Abierta</option>
+          <option value="en_progreso">En progreso</option>
+        </select>
+        <select id="filterArea" style="max-width: 200px;">
+          <option value="">Todas las áreas</option>
+        </select>
+        <select id="filterPriority" style="max-width: 200px;">
+          <option value="">Todas las prioridades</option>
+          <option value="critica">Crítica</option>
+          <option value="alta">Alta</option>
+          <option value="media">Media</option>
+          <option value="baja">Baja</option>
+        </select>
+        <input id="filterSearch" placeholder="Buscar..." style="flex: 1; min-width: 200px;" />
       </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Título</th>
+            <th>Solicitante</th>
+            <th>Área</th>
+            <th>Prioridad</th>
+            <th>Estado</th>
+            <th>Asignado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="ticketsTableBody">
+          <tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
+        </tbody>
+      </table>
     </div>
   </main>
 
-  <div id="modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-800 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-700">
-      <div class="flex justify-between items-center p-5 border-b border-slate-700">
+  <!-- Modal de Detalle -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
         <div>
-          <h3 class="text-xl font-bold" id="modalTitle">Ticket</h3>
-          <p class="text-xs text-slate-400 mt-1" id="modalSubtitle"></p>
+          <h3 id="modalTitle" style="font-size: 20px; font-weight: 600;">Ticket</h3>
+          <p id="modalSubtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></p>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-2 rounded-full">✕</button>
+        <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">✕</button>
       </div>
-
-      <div class="p-5 overflow-y-auto custom-scroll flex-1 space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-lg">
-          <div>
-            <span class="text-xs text-slate-500 uppercase">Descripción</span>
-            <p class="text-sm mt-1" id="modalDescription"></p>
+      
+      <div class="modal-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Solicitante</div>
+            <div class="info-value" id="modalRequester"></div>
           </div>
-          <div class="space-y-2">
-            <div class="flex justify-between"><span class="text-xs text-slate-500">Solicitante</span><span id="modalRequester"></span></div>
-            <div class="flex justify-between"><span class="text-xs text-slate-500">Área</span><span class="capitalize" id="modalArea"></span></div>
-            <div class="flex justify-between"><span class="text-xs text-slate-500">Prioridad</span><span id="modalPriority"></span></div>
+          <div class="info-item">
+            <div class="info-label">Área</div>
+            <div class="info-value" id="modalArea"></div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Prioridad</div>
+            <div class="info-value" id="modalPriority"></div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Asignado a</div>
+            <div class="info-value" id="modalAssignee"></div>
           </div>
         </div>
 
-        <div>
-          <h4 class="font-bold text-sm mb-3">📜 Historial</h4>
-          <div id="modalHistory" class="space-y-3 max-h-64 overflow-y-auto custom-scroll pr-2"></div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Descripción</h4>
+          <p id="modalDescription" style="font-size: 14px; line-height: 1.6; color: var(--text-secondary);"></p>
         </div>
 
-        <div class="border-t border-slate-700 pt-5 space-y-4">
-          <h4 class="font-bold text-sm">Gestionar</h4>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">💬 Chat del Ticket</h4>
+        <div class="chat-container">
+          <div id="chatMessages" class="chat-messages"></div>
+          <div class="chat-input">
+            <input id="chatInput" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter')sendMessage()" />
+            <button class="btn btn-primary" onclick="sendMessage()">Enviar</button>
+          </div>
+        </div>
+
+        <div id="adminControls" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Gestionar Ticket</h4>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div>
-              <label class="text-xs text-slate-400">Estado</label>
-              <select id="newStatus" class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1">
+              <label style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block;">Estado</label>
+              <select id="newStatus">
                 <option value="abierta">Abierta</option>
                 <option value="en_progreso">En progreso</option>
-                <option value="cerrada">Cerrada (resolver)</option>
+                <option value="cerrada">Cerrada</option>
               </select>
             </div>
             <div>
-              <label class="text-xs text-slate-400">Asignar a</label>
-              <select id="newAssignee" class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1">
+              <label style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block;">Asignar a</label>
+              <select id="newAssignee">
                 <option value="">Sin asignar</option>
               </select>
             </div>
           </div>
-          <div id="observacionesContainer" class="hidden">
-            <label class="text-xs text-slate-400">Observaciones al cerrar (se enviarán al solicitante)</label>
-            <textarea id="observaciones" rows="3" placeholder="Ej: Se reemplazó el cable de red. Problema resuelto." class="w-full bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm mt-1"></textarea>
+          <div id="observacionesContainer" style="margin-bottom: 16px; display: none;">
+            <label style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block;">Observaciones al cerrar</label>
+            <textarea id="observaciones" rows="3" placeholder="Ej: Se reemplazó el cable de red. Problema resuelto."></textarea>
           </div>
-          <div class="flex gap-3">
-            <button onclick="updateTicket()" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2.5 rounded-lg font-semibold">💾 Guardar</button>
-            <button onclick="deleteTicket()" class="bg-red-600 hover:bg-red-700 py-2.5 px-6 rounded-lg font-semibold">🗑️ Eliminar</button>
+          <div style="display: flex; gap: 12px;">
+            <button class="btn btn-primary" onclick="updateTicket()" style="flex: 1;">💾 Guardar</button>
+            <button class="btn btn-danger" onclick="deleteTicket()">🗑️ Eliminar</button>
           </div>
         </div>
       </div>
@@ -140,22 +299,61 @@
   </div>
 
   <script>
-    const priorityColors = {
-      critica: 'bg-red-500/20 text-red-400 border border-red-500/30',
-      alta: 'bg-orange-500/20 text-orange-400 border border-orange-500/30',
-      media: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30',
-      baja: 'bg-green-500/20 text-green-400 border border-green-500/30'
-    };
-    const statusColors = {
-      abierta: 'bg-blue-500/20 text-blue-400 border border-blue-500/30',
-      en_progreso: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
-      cerrada: 'bg-slate-600/20 text-slate-400 border border-slate-600/30'
-    };
-
+    let currentUser = null;
     let allTickets = [];
     let allEmployees = [];
     let allAreas = [];
     let currentTicketId = null;
+
+    // Verificar autenticación
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('No autenticado');
+        return res.json();
+      })
+      .then(user => {
+        currentUser = user;
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        
+        if (user.role !== 'admin') {
+          document.getElementById('settingsLink').style.display = 'none';
+          document.getElementById('usersLink').style.display = 'none';
+          document.getElementById('adminControls').style.display = 'none';
+        }
+      })
+      .catch(() => {
+        window.location.href = '/login.html';
+      });
+
+    // Tema
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    }
+
+    const priorityColors = {
+      critica: 'badge-error',
+      alta: 'badge-warning',
+      media: 'badge-info',
+      baja: 'badge-success'
+    };
+
+    const statusColors = {
+      abierta: 'badge-info',
+      en_progreso: 'badge-warning',
+      cerrada: 'badge-success'
+    };
 
     async function loadData() {
       try {
@@ -165,9 +363,12 @@
           fetch('/api/areas')
         ]);
         
-        allTickets = await ticketsRes.json();
+        const allTicketsRaw = await ticketsRes.json();
         allEmployees = await empRes.json();
         allAreas = await areasRes.json();
+
+        // Filtrar solo tickets activos
+        allTickets = allTicketsRaw.filter(t => t.status !== 'cerrada');
 
         // Actualizar filtro de áreas
         const areaFilter = document.getElementById('filterArea');
@@ -178,9 +379,7 @@
 
         renderTickets();
       } catch (error) {
-        console.error('❌ Error:', error);
-        document.getElementById('ticketsTableBody').innerHTML = 
-          `<tr><td colspan="8" class="p-8 text-center text-red-400">Error al cargar</td></tr>`;
+        console.error('Error:', error);
       }
     }
 
@@ -206,33 +405,23 @@
 
       const tbody = document.getElementById('ticketsTableBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No hay tickets</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay tickets activos</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(t => `
-        <tr class="hover:bg-slate-700/40 transition">
-          <td class="p-4 font-mono text-blue-400">#T-${t.id}</td>
-          <td class="p-4 max-w-xs truncate" title="${t.title}">${t.title}</td>
-          <td class="p-4">
+        <tr>
+          <td style="font-family: monospace; color: var(--accent);">#T-${t.id}</td>
+          <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.title}">${t.title}</td>
+          <td>
             <div>${t.requesterName || 'Desconocido'}</div>
-            <div class="text-xs text-slate-500">${t.requesterPhone}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${t.requesterPhone}</div>
           </td>
-          <td class="p-4">${t.area}</td>
-          <td class="p-4">
-            <span class="px-2 py-1 rounded-full text-xs ${priorityColors[t.priorityLevel] || priorityColors.media}">
-              ${t.priorityLevel} (${t.score})
-            </span>
-          </td>
-          <td class="p-4">
-            <span class="px-2 py-1 rounded-full text-xs ${statusColors[t.status] || statusColors.abierta}">
-              ${t.status.replace('_', ' ')}
-            </span>
-          </td>
-          <td class="p-4 text-slate-400">${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span class="italic text-slate-600">Sin asignar</span>'}</td>
-          <td class="p-4 text-center">
-            <button onclick="viewTicket(${t.id})" class="text-blue-400 hover:bg-blue-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver</button>
-          </td>
+          <td>${t.area}</td>
+          <td><span class="badge ${priorityColors[t.priorityLevel] || 'badge-info'}">${t.priorityLevel} (${t.score})</span></td>
+          <td><span class="badge ${statusColors[t.status] || 'badge-info'}">${t.status.replace('_', ' ')}</span></td>
+          <td>${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span style="color: var(--text-muted);">Sin asignar</span>'}</td>
+          <td><button class="btn btn-secondary" onclick="viewTicket(${t.id})" style="padding: 6px 12px; font-size: 13px;">Ver</button></td>
         </tr>
       `).join('');
     }
@@ -252,57 +441,95 @@
       document.getElementById('modalDescription').textContent = t.description || 'Sin descripción';
       document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
       document.getElementById('modalArea').textContent = t.area;
+      document.getElementById('modalPriority').innerHTML = `<span class="badge ${priorityColors[t.priorityLevel] || 'badge-info'}">${t.priorityLevel} (${t.score})</span>`;
+      document.getElementById('modalAssignee').textContent = t.assignedTo ? getEmployeeName(t.assignedTo) : 'Sin asignar';
 
-      const prioEl = document.getElementById('modalPriority');
-      prioEl.className = `px-2 py-1 rounded-full text-xs ${priorityColors[t.priorityLevel] || priorityColors.media}`;
-      prioEl.textContent = `${t.priorityLevel} (${t.score})`;
+      // Cargar mensajes del chat
+      renderChat(t.messages || []);
 
-      const historyContainer = document.getElementById('modalHistory');
-      if (t.messages && t.messages.length > 0) {
-        historyContainer.innerHTML = t.messages.map(m => {
-          const isBot = m.from === 'bot' || m.from === 'panel';
-          const bg = isBot ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-700/50 border-slate-600';
-          const label = isBot ? '🤖 Sistema' : `👤 ${m.name}`;
-          return `
-            <div class="text-[10px] text-slate-500 mb-1">${label} • ${new Date(m.at).toLocaleString()}</div>
-            <div class="${bg} border p-3 rounded-lg mb-3 text-sm">${m.text}</div>
-          `;
-        }).join('');
-      } else {
-        historyContainer.innerHTML = `<div class="text-sm text-slate-500 italic text-center py-4">Sin mensajes</div>`;
-      }
+      // Controles de admin
+      if (currentUser && currentUser.role === 'admin') {
+        document.getElementById('newStatus').value = t.status;
+        
+        const assigneeSelect = document.getElementById('newAssignee');
+        assigneeSelect.innerHTML = '<option value="">Sin asignar</option>';
+        allEmployees.filter(e => e.area === t.area).forEach(emp => {
+          const selected = t.assignedTo === emp.phone ? 'selected' : '';
+          assigneeSelect.innerHTML += `<option value="${emp.phone}" ${selected}>${emp.name} (${emp.role})</option>`;
+        });
 
-      document.getElementById('newStatus').value = t.status;
-      document.getElementById('observaciones').value = '';
-      
-      const assigneeSelect = document.getElementById('newAssignee');
-      assigneeSelect.innerHTML = '<option value="">Sin asignar</option>';
-      allEmployees.filter(e => e.area === t.area).forEach(emp => {
-        const selected = t.assignedTo === emp.phone ? 'selected' : '';
-        assigneeSelect.innerHTML += `<option value="${emp.phone}" ${selected}>${emp.name} (${emp.role})</option>`;
-      });
-
-      // Toggle observaciones
-      const statusSelect = document.getElementById('newStatus');
-      const observacionesContainer = document.getElementById('observacionesContainer');
-      
-      function toggleObservaciones() {
-        if (statusSelect.value === 'cerrada') {
-          observacionesContainer.classList.remove('hidden');
-        } else {
-          observacionesContainer.classList.add('hidden');
+        const statusSelect = document.getElementById('newStatus');
+        const observacionesContainer = document.getElementById('observacionesContainer');
+        
+        function toggleObservaciones() {
+          observacionesContainer.style.display = statusSelect.value === 'cerrada' ? 'block' : 'none';
         }
+        
+        statusSelect.removeEventListener('change', toggleObservaciones);
+        statusSelect.addEventListener('change', toggleObservaciones);
+        toggleObservaciones();
       }
-      
-      statusSelect.removeEventListener('change', toggleObservaciones);
-      statusSelect.addEventListener('change', toggleObservaciones);
-      toggleObservaciones();
 
-      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('active');
+    }
+
+    function renderChat(messages) {
+      const chatContainer = document.getElementById('chatMessages');
+      
+      if (messages.length === 0) {
+        chatContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 40px;">No hay mensajes aún</p>';
+        return;
+      }
+
+      chatContainer.innerHTML = messages.map(m => {
+        const isUser = m.from !== 'bot' && m.from !== 'panel';
+        const type = isUser ? 'user' : 'bot';
+        const name = isUser ? m.name : 'Sistema';
+        
+        return `
+          <div class="chat-message ${type}">
+            <div class="chat-bubble">${m.text}</div>
+            <div class="chat-meta">${name} • ${new Date(m.at).toLocaleString()}</div>
+          </div>
+        `;
+      }).join('');
+
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const text = input.value.trim();
+      if (!text || !currentTicketId) return;
+
+      try {
+        const res = await fetch(`/api/tickets/${currentTicketId}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text,
+            fromName: currentUser.name
+          })
+        });
+
+        if (res.ok) {
+          input.value = '';
+          // Recargar ticket para ver el nuevo mensaje
+          const ticket = allTickets.find(t => t.id === currentTicketId);
+          if (ticket) {
+            const ticketRes = await fetch(`/api/tickets/${currentTicketId}`);
+            const updatedTicket = await ticketRes.json();
+            renderChat(updatedTicket.messages || []);
+          }
+        }
+      } catch (error) {
+        alert('Error al enviar mensaje');
+      }
     }
 
     async function updateTicket() {
-      if (!currentTicketId) return;
+      if (!currentTicketId || !currentUser || currentUser.role !== 'admin') return;
+      
       const status = document.getElementById('newStatus').value;
       const assignedTo = document.getElementById('newAssignee').value || null;
       const observaciones = document.getElementById('observaciones').value.trim();
@@ -318,6 +545,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
         });
+        
         if (res.ok) {
           closeModal();
           await loadData();
@@ -330,7 +558,7 @@
     }
 
     async function deleteTicket() {
-      if (!currentTicketId) return;
+      if (!currentTicketId || !currentUser || currentUser.role !== 'admin') return;
       if (!confirm(`¿Eliminar ticket #T-${currentTicketId}?`)) return;
 
       try {
@@ -347,7 +575,7 @@
     }
 
     function closeModal() {
-      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('active');
       currentTicketId = null;
     }
 

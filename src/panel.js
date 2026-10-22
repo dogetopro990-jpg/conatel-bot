@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const Auth = require('./auth');
 
 const config = require('./config');
 const { refreshPriority } = require('./priority');
@@ -48,6 +49,16 @@ function readBody(req) {
   });
 }
 
+function getCookie(req, name) {
+  const cookies = req.headers.cookie || '';
+  const match = cookies.match(new RegExp(`${name}=([^;]+)`));
+  return match ? match[1] : null;
+}
+
+function setCookie(res, name, value, maxAge = 86400) {
+  res.setHeader('Set-Cookie', `${name}=${value}; Path=/; HttpOnly; Max-Age=${maxAge}`);
+}
+
 function serveFile(res, pathname) {
   let relative = pathname;
   try {
@@ -69,7 +80,7 @@ function serveFile(res, pathname) {
         const indexPath = path.join(PUBLIC_DIR, 'index.html');
         return fs.readFile(indexPath, (err2, data2) => {
           if (err2) {
-            return json(res, 404, { error: 'Panel no encontrado. Crea public/index.html' });
+            return json(res, 404, { error: 'Panel no encontrado' });
           }
           res.writeHead(200, { 'Content-Type': MIME['.html'] });
           res.end(data2);
@@ -84,7 +95,6 @@ function serveFile(res, pathname) {
   });
 }
 
-// Función auxiliar para enriquecer ticket con nombre registrado
 function enrichTicket(ticket, store) {
   const employee = store.data.employees?.[ticket.requesterPhone];
   return {
@@ -94,28 +104,107 @@ function enrichTicket(ticket, store) {
   };
 }
 
+function getAllAreas(store) {
+  const customAreas = store.data.settings?.customAreas || [];
+  return [...config.areas, ...customAreas.filter(a => !config.areas.includes(a))];
+}
+
 function startPanel({ store, sendText, logger, port, host }) {
   const serverPort = Number(port || process.env.PANEL_PORT || 3000);
   const serverHost = host || process.env.PANEL_HOST || '0.0.0.0';
+  const auth = new Auth(store);
 
   console.log(`🔧 [PANEL] Preparando servidor en ${serverHost}:${serverPort}...`);
 
   async function handleApi(req, res, pathname, query) {
     const method = req.method;
     const parts = pathname.split('/').filter(Boolean);
+    const sessionId = getCookie(req, 'sessionId');
+    const session = auth.validateSession(sessionId);
 
-    // ---------- HEALTH ----------
+    // Rutas públicas (sin autenticación)
+    if (pathname === '/api/auth/login' && method === 'POST') {
+      const body = await readBody(req);
+      const result = await auth.login(body.username, body.password);
+      
+      if (!result) {
+        return json(res, 401, { error: 'Credenciales inválidas' });
+      }
+
+      setCookie(res, 'sessionId', result.sessionId);
+      return json(res, 200, result);
+    }
+
+    if (pathname === '/api/auth/logout' && method === 'POST') {
+      if (sessionId) {
+        await auth.logout(sessionId);
+        res.setHeader('Set-Cookie', 'sessionId=; Path=/; HttpOnly; Max-Age=0');
+      }
+      return json(res, 200, { ok: true });
+    }
+
+    if (pathname === '/api/auth/me' && method === 'GET') {
+      if (!session) {
+        return json(res, 401, { error: 'No autenticado' });
+      }
+      return json(res, 200, session);
+    }
+
+    // Verificar autenticación para el resto de rutas
+    if (!session) {
+      return json(res, 401, { error: 'No autenticado' });
+    }
+
+    // HEALTH
     if (pathname === '/api/health') {
       return json(res, 200, { ok: true, time: nowISO() });
     }
 
-    // ---------- STATS ----------
+    // USERS (solo admin)
+    if (pathname === '/api/users' && method === 'GET') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+      const users = await auth.listUsers();
+      return json(res, 200, users);
+    }
+
+    if (pathname === '/api/users' && method === 'POST') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+      const body = await readBody(req);
+      try {
+        const user = await auth.createUser(body.username, body.password, body.role, body.name);
+        return json(res, 200, user);
+      } catch (error) {
+        return json(res, 400, { error: error.message });
+      }
+    }
+
+    if (pathname.startsWith('/api/users/') && method === 'DELETE') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+      const username = parts[2];
+      try {
+        await auth.deleteUser(username);
+        return json(res, 200, { ok: true });
+      } catch (error) {
+        return json(res, 400, { error: error.message });
+      }
+    }
+
+    // STATS
     if (pathname === '/api/stats' && method === 'GET') {
       const tickets = Object.values(store.data.tickets || {});
       const open = tickets.filter((t) => ['abierta', 'en_progreso'].includes(t.status));
       open.forEach(refreshPriority);
 
-      const byArea = { soporte: 0, infraestructura: 0, desarrollo: 0 };
+      const areas = getAllAreas(store);
+      const byArea = {};
+      areas.forEach(a => byArea[a] = 0);
+
       const byPriority = { baja: 0, media: 0, alta: 0, critica: 0 };
       const byStatus = { abierta: 0, en_progreso: 0, cerrada: 0 };
 
@@ -147,7 +236,7 @@ function startPanel({ store, sendText, logger, port, host }) {
       });
     }
 
-    // ---------- TICKETS LIST (con nombre registrado) ----------
+    // TICKETS
     if (pathname === '/api/tickets' && method === 'GET') {
       let tickets = Object.values(store.data.tickets || {})
         .map(t => enrichTicket(t, store))
@@ -176,7 +265,7 @@ function startPanel({ store, sendText, logger, port, host }) {
       return json(res, 200, tickets);
     }
 
-    // ---------- TICKETS RESUELTOS ----------
+    // TICKETS RESUELTOS
     if (pathname === '/api/tickets/resolved' && method === 'GET') {
       let tickets = Object.values(store.data.tickets || {})
         .filter(t => t.status === 'cerrada')
@@ -187,7 +276,7 @@ function startPanel({ store, sendText, logger, port, host }) {
       return json(res, 200, tickets);
     }
 
-    // ---------- TICKET BY ID ----------
+    // TICKET BY ID
     if (parts[0] === 'api' && parts[1] === 'tickets' && parts[2]) {
       const id = Number(parts[2]);
       const idStr = String(id);
@@ -197,14 +286,17 @@ function startPanel({ store, sendText, logger, port, host }) {
         return json(res, 404, { error: 'Ticket no encontrado' });
       }
 
-      // GET /api/tickets/:id
       if (method === 'GET' && parts.length === 3) {
         refreshPriority(ticket);
         return json(res, 200, enrichTicket(ticket, store));
       }
 
-      // PATCH /api/tickets/:id
+      // PATCH (solo admin puede modificar)
       if (method === 'PATCH' && parts.length === 3) {
+        if (session.role !== 'admin') {
+          return json(res, 403, { error: 'Sin permisos' });
+        }
+
         const body = await readBody(req);
         const patch = {};
         const previousStatus = ticket.status;
@@ -212,7 +304,7 @@ function startPanel({ store, sendText, logger, port, host }) {
         if (body.status && ['abierta', 'en_progreso', 'cerrada'].includes(body.status)) {
           patch.status = body.status;
         }
-        if (body.area && config.areas.includes(body.area)) patch.area = body.area;
+        if (body.area) patch.area = body.area;
         if (body.urgency && ['baja', 'media', 'alta', 'critica'].includes(body.urgency)) {
           patch.urgency = body.urgency;
         }
@@ -222,12 +314,27 @@ function startPanel({ store, sendText, logger, port, host }) {
 
         Object.assign(ticket, patch);
         ticket.updatedAt = nowISO();
+        
+        if (body.observaciones && patch.status === 'cerrada') {
+          ticket.messages.push({
+            from: 'panel',
+            name: 'Panel Admin',
+            text: `📝 Observaciones al cerrar:\n${body.observaciones}`,
+            kind: 'observacion_cierre',
+            at: nowISO()
+          });
+        }
+        
         refreshPriority(ticket);
         await store.save();
 
-        // Si se acaba de cerrar, notificar al solicitante
         if (patch.status === 'cerrada' && previousStatus !== 'cerrada') {
-          notifyRequesterOnClose({ ticket, sendText, logger }).catch(err => {
+          notifyRequesterOnClose({ 
+            ticket, 
+            sendText, 
+            logger,
+            observaciones: body.observaciones || null
+          }).catch(err => {
             console.error(`   ❌ Error notificando cierre: ${err.message}`);
           });
         }
@@ -235,8 +342,12 @@ function startPanel({ store, sendText, logger, port, host }) {
         return json(res, 200, enrichTicket(ticket, store));
       }
 
-      // DELETE /api/tickets/:id
+      // DELETE (solo admin)
       if (method === 'DELETE' && parts.length === 3) {
+        if (session.role !== 'admin') {
+          return json(res, 403, { error: 'Sin permisos' });
+        }
+
         console.log(`   🗑️  Eliminando ticket #T-${id}`);
         delete store.data.tickets[idStr];
         await store.save();
@@ -244,14 +355,14 @@ function startPanel({ store, sendText, logger, port, host }) {
         return json(res, 200, { ok: true, message: `Ticket #T-${id} eliminado` });
       }
 
-      // POST /api/tickets/:id/messages
+      // POST messages (cualquier usuario autenticado puede agregar mensajes)
       if (method === 'POST' && parts[3] === 'messages') {
         const body = await readBody(req);
         if (!body.text) return json(res, 400, { error: 'Texto requerido' });
 
         ticket.messages.push({
           from: body.from || 'panel',
-          name: body.fromName || 'Panel Admin',
+          name: body.fromName || session.name,
           text: body.text,
           kind: 'nota_panel',
           at: nowISO()
@@ -262,19 +373,25 @@ function startPanel({ store, sendText, logger, port, host }) {
       }
     }
 
-    // ---------- EMPLOYEES ----------
+    // EMPLOYEES
     if (pathname === '/api/employees' && method === 'GET') {
       return json(res, 200, Object.values(store.data.employees || {}));
     }
 
     if (pathname === '/api/employees' && method === 'POST') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
       const body = await readBody(req);
       const { phone, name, area, role } = body;
 
       if (!phone || !name || !area || !role) {
-        return json(res, 400, { error: 'Faltan datos: phone, name, area, role' });
+        return json(res, 400, { error: 'Faltan datos' });
       }
-      if (!config.areas.includes(area)) {
+
+      const areas = getAllAreas(store);
+      if (!areas.includes(area)) {
         return json(res, 400, { error: 'Área inválida' });
       }
 
@@ -299,10 +416,15 @@ function startPanel({ store, sendText, logger, port, host }) {
       const existing = store.data.employees[phone];
 
       if (method === 'PUT') {
+        if (session.role !== 'admin') {
+          return json(res, 403, { error: 'Sin permisos' });
+        }
+
         if (!existing) return json(res, 404, { error: 'Empleado no encontrado' });
 
         const body = await readBody(req);
-        if (body.area && !config.areas.includes(body.area)) {
+        const areas = getAllAreas(store);
+        if (body.area && !areas.includes(body.area)) {
           return json(res, 400, { error: 'Área inválida' });
         }
 
@@ -319,6 +441,10 @@ function startPanel({ store, sendText, logger, port, host }) {
       }
 
       if (method === 'DELETE') {
+        if (session.role !== 'admin') {
+          return json(res, 403, { error: 'Sin permisos' });
+        }
+
         if (!existing) return json(res, 404, { error: 'Empleado no encontrado' });
 
         delete store.data.employees[phone];
@@ -327,11 +453,117 @@ function startPanel({ store, sendText, logger, port, host }) {
       }
     }
 
-    // ---------- MENSAJES ----------
+    // AREAS
+    if (pathname === '/api/areas' && method === 'GET') {
+      return json(res, 200, getAllAreas(store));
+    }
+
+    if (pathname === '/api/areas' && method === 'POST') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
+      const body = await readBody(req);
+      if (!body.area || typeof body.area !== 'string') {
+        return json(res, 400, { error: 'Área requerida' });
+      }
+      
+      const settings = store.getSettings();
+      const customAreas = settings.customAreas || [];
+      
+      if (!customAreas.includes(body.area)) {
+        customAreas.push(body.area);
+        settings.customAreas = customAreas;
+        store.data.settings = settings;
+        await store.save();
+      }
+      
+      return json(res, 200, { ok: true, areas: getAllAreas(store) });
+    }
+
+    if (pathname === '/api/areas' && method === 'DELETE') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
+      const body = await readBody(req);
+      if (!body.area) {
+        return json(res, 400, { error: 'Área requerida' });
+      }
+      
+      const settings = store.getSettings();
+      const customAreas = settings.customAreas || [];
+      settings.customAreas = customAreas.filter(a => a !== body.area);
+      store.data.settings = settings;
+      await store.save();
+      
+      return json(res, 200, { ok: true });
+    }
+
+    // CONFIG MESSAGES (solo admin)
+    if (pathname === '/api/config/messages' && method === 'GET') {
+      const settings = store.getSettings();
+      return json(res, 200, settings.customMessages || {});
+    }
+
+    if (pathname === '/api/config/messages' && method === 'PUT') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
+      const body = await readBody(req);
+      const settings = store.getSettings();
+      settings.customMessages = body;
+      store.data.settings = settings;
+      await store.save();
+      
+      const { setCustomMessages } = require('./ai');
+      setCustomMessages(body);
+      
+      return json(res, 200, { ok: true });
+    }
+
+    // CONFIG GENERAL (solo admin)
+    if (pathname === '/api/config/general' && method === 'GET') {
+      const settings = store.getSettings();
+      return json(res, 200, {
+        botName: settings.botName || config.botName,
+        minDelayMs: settings.minDelayMs ?? config.minDelayMs,
+        maxDelayMs: settings.maxDelayMs ?? config.maxDelayMs,
+        priorityThreshold: settings.priorityThreshold ?? config.priorityThreshold,
+        autoAlerts: settings.autoAlerts ?? true
+      });
+    }
+
+    if (pathname === '/api/config/general' && method === 'PUT') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
+      const body = await readBody(req);
+      const settings = store.getSettings();
+      
+      if (body.botName) settings.botName = body.botName;
+      if (typeof body.minDelayMs === 'number') settings.minDelayMs = body.minDelayMs;
+      if (typeof body.maxDelayMs === 'number') settings.maxDelayMs = body.maxDelayMs;
+      if (typeof body.priorityThreshold === 'number') settings.priorityThreshold = body.priorityThreshold;
+      if (typeof body.autoAlerts === 'boolean') settings.autoAlerts = body.autoAlerts;
+      
+      store.data.settings = settings;
+      await store.save();
+      
+      return json(res, 200, { ok: true });
+    }
+
+    // MESSAGES
     if (pathname === '/api/messages/send' && method === 'POST') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
       const body = await readBody(req);
       if (!body.to || !body.text) {
-        return json(res, 400, { error: 'Faltan datos: to, text' });
+        return json(res, 400, { error: 'Faltan datos' });
       }
 
       const clean = toPhone(body.to);
@@ -344,12 +576,16 @@ function startPanel({ store, sendText, logger, port, host }) {
     }
 
     if (pathname === '/api/messages/broadcast' && method === 'POST') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
       const body = await readBody(req);
       if (!body.text) return json(res, 400, { error: 'Texto requerido' });
 
       let targets = Object.values(store.data.employees || {}).map((e) => e.phone);
 
-      if (body.area && config.areas.includes(body.area)) {
+      if (body.area) {
         targets = Object.values(store.data.employees || {})
           .filter((e) => e.area === body.area)
           .map((e) => e.phone);
@@ -362,23 +598,24 @@ function startPanel({ store, sendText, logger, port, host }) {
         try {
           const ok = await sendText(`${phone}@s.whatsapp.net`, `📢 ${body.text}`);
           if (ok) sent++;
-        } catch (err) {
-          // Ignorar error individual
-        }
+        } catch (err) {}
       }
 
       return json(res, 200, { ok: true, sent, total: targets.length });
     }
 
-    // ---------- SETTINGS ----------
+    // SETTINGS (legacy)
     if (pathname === '/api/settings' && method === 'GET') {
       return json(res, 200, store.getSettings());
     }
 
     if (pathname === '/api/settings' && method === 'PUT') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
       const body = await readBody(req);
       const current = store.getSettings();
-
       const next = { ...current, ...body };
 
       if (typeof body.priorityThreshold === 'number') {
@@ -426,7 +663,6 @@ function startPanel({ store, sendText, logger, port, host }) {
     console.error(`❌ [PANEL] No se pudo iniciar: ${err.code} - ${err.message}`);
     if (err.code === 'EADDRINUSE') {
       console.error(`   El puerto ${serverPort} ya está en uso.`);
-      console.error('   Cierra el otro programa o cambia PANEL_PORT en .env');
     }
   });
 
@@ -435,7 +671,8 @@ function startPanel({ store, sendText, logger, port, host }) {
     console.log('==========================================');
     console.log('🌐 PANEL WEB INICIADO CORRECTAMENTE');
     console.log(`   Local: http://localhost:${serverPort}`);
-    console.log(`   API:   http://localhost:${serverPort}/api/health`);
+    console.log('   Usuario admin: admin / admin123');
+    console.log('   Usuario visualizador: visualizador / visual123');
     console.log('==========================================');
     console.log('');
   });

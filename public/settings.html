@@ -4,116 +4,260 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Configuración - CONATEL</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    .settings-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+    }
+    
+    .form-group small {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .area-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .area-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .message-category {
+      margin-bottom: 20px;
+    }
+    
+    .message-category label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+    }
+    
+    .message-category small {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
-      <h1 class="text-lg font-bold">CONATEL Panel</h1>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">C</div>
+      <div class="nav-title">
+        <h1>CONATEL Panel</h1>
+        <p>Sistema de Gestión de Tickets</p>
+      </div>
     </div>
-    <div class="flex gap-2 text-sm flex-wrap">
-      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
-      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
-      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="/settings.html" class="px-3 py-1.5 bg-blue-600 rounded">Config</a>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="tickets.html">Tickets</a>
+      <a href="resolved.html">Resueltos</a>
+      <a href="employees.html">Empleados</a>
+      <a href="messages.html">Mensajes</a>
+      <a href="settings.html" class="active">Config</a>
+      <a href="users.html" id="usersLink">Usuarios</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <div class="user-info">
+        <span id="userName">Usuario</span>
+        <span id="userRole" class="badge badge-info"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
     </div>
   </nav>
 
-  <main class="max-w-5xl mx-auto p-6 space-y-6">
-    <h2 class="text-2xl font-bold">Configuración del Bot</h2>
+  <main>
+    <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 24px;">Configuración del Bot</h2>
+    
+    <div class="settings-grid">
+      <!-- Configuración General -->
+      <div class="card">
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">⚙️ Configuración General</h3>
+        
+        <div class="form-group">
+          <label>Nombre del Bot</label>
+          <input type="text" id="botName" />
+          <small>Nombre que se mostrará en los mensajes</small>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label>Delay Mínimo (ms)</label>
+            <input type="number" id="minDelay" min="0" />
+            <small>Tiempo mínimo antes de responder</small>
+          </div>
+          <div class="form-group">
+            <label>Delay Máximo (ms)</label>
+            <input type="number" id="maxDelay" min="0" />
+            <small>Tiempo máximo antes de responder</small>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label>Umbral de Prioridad (0-100)</label>
+          <input type="number" id="threshold" min="0" max="100" />
+          <small>Score mínimo para generar alertas automáticas</small>
+        </div>
+        
+        <div class="form-group">
+          <label style="display: flex; align-items: center; gap: 8px;">
+            <input type="checkbox" id="autoAlerts" style="width: auto;" />
+            Alertas Automáticas
+          </label>
+          <small>Enviar avisos según prioridad de tickets</small>
+        </div>
+        
+        <button class="btn btn-primary" onclick="saveGeneral()" style="width: 100%;">💾 Guardar Configuración</button>
+      </div>
 
-    <!-- General -->
-    <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-      <h3 class="font-bold text-lg mb-4">⚙️ General</h3>
-      <div class="space-y-4">
-        <div>
-          <label class="text-sm text-slate-400">Nombre del bot</label>
-          <input type="text" id="botName" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
+      <!-- Gestión de Áreas -->
+      <div class="card">
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">🏢 Áreas de la Empresa</h3>
+        
+        <div class="area-list" id="areasList"></div>
+        
+        <div style="display: flex; gap: 8px; margin-top: 16px;">
+          <input type="text" id="newArea" placeholder="Nueva área..." style="flex: 1;" />
+          <button class="btn btn-primary" onclick="addArea()">+ Agregar</button>
         </div>
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="text-sm text-slate-400">Delay mínimo (ms)</label>
-            <input type="number" id="minDelay" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-          </div>
-          <div>
-            <label class="text-sm text-slate-400">Delay máximo (ms)</label>
-            <input type="number" id="maxDelay" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-          </div>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400">Umbral de prioridad (0-100)</label>
-          <input type="number" id="threshold" min="0" max="100" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-        </div>
-        <div class="flex items-center justify-between">
-          <div>
-            <div class="font-bold">Alertas automáticas</div>
-            <div class="text-sm text-slate-400">Enviar avisos según prioridad</div>
-          </div>
-          <input type="checkbox" id="autoAlerts" class="w-5 h-5" />
-        </div>
-        <button onclick="saveGeneral()" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">💾 Guardar General</button>
       </div>
     </div>
 
-    <!-- Áreas -->
-    <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-      <h3 class="font-bold text-lg mb-4">🏢 Áreas de la Empresa</h3>
-      <div id="areasList" class="space-y-2 mb-4"></div>
-      <div class="flex gap-2">
-        <input type="text" id="newArea" placeholder="Nueva área..." class="flex-1 bg-slate-700 px-3 py-2 rounded" />
-        <button onclick="addArea()" class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded font-bold">+ Agregar</button>
-      </div>
-    </div>
-
-    <!-- Mensajes -->
-    <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-      <h3 class="font-bold text-lg mb-4">💬 Mensajes Automáticos</h3>
-      <p class="text-sm text-slate-400 mb-4">Personaliza las respuestas del bot. Agrega múltiples opciones separadas por línea.</p>
+    <!-- Mensajes Automáticos -->
+    <div class="card" style="margin-top: 24px;">
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">💬 Mensajes Automáticos</h3>
+      <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 20px;">
+        Personaliza las respuestas del bot. Agrega múltiples opciones separadas por línea. El bot elegirá una al azar.
+      </p>
       
-      <div class="space-y-4">
-        <div>
-          <label class="text-sm text-slate-400 font-semibold">Saludo (usuarios no registrados)</label>
-          <textarea id="msg_saludo" rows="3" class="w-full bg-slate-700 px-3 py-2 rounded mt-1 font-mono text-sm"></textarea>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400 font-semibold">Saludo (usuarios registrados) - usa {nombre}</label>
-          <textarea id="msg_saludo_registrado" rows="3" class="w-full bg-slate-700 px-3 py-2 rounded mt-1 font-mono text-sm"></textarea>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400 font-semibold">Transición después del registro - usa {nombre}</label>
-          <textarea id="msg_transicion_a_solicitud" rows="3" class="w-full bg-slate-700 px-3 py-2 rounded mt-1 font-mono text-sm"></textarea>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400 font-semibold">Problema detectado</label>
-          <textarea id="msg_problema_detectado" rows="3" class="w-full bg-slate-700 px-3 py-2 rounded mt-1 font-mono text-sm"></textarea>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400 font-semibold">Agradecimiento</label>
-          <textarea id="msg_agradecimiento" rows="3" class="w-full bg-slate-700 px-3 py-2 rounded mt-1 font-mono text-sm"></textarea>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400 font-semibold">Despedida</label>
-          <textarea id="msg_despedida" rows="3" class="w-full bg-slate-700 px-3 py-2 rounded mt-1 font-mono text-sm"></textarea>
-        </div>
-        <button onclick="saveMessages()" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">💾 Guardar Mensajes</button>
+      <div class="message-category">
+        <label>Saludo (usuarios no registrados)</label>
+        <small>Mensajes de bienvenida para nuevos usuarios</small>
+        <textarea id="msg_saludo" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
+      
+      <div class="message-category">
+        <label>Saludo (usuarios registrados)</label>
+        <small>Usa {nombre} para insertar el nombre del usuario</small>
+        <textarea id="msg_saludo_registrado" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
+      </div>
+      
+      <div class="message-category">
+        <label>Transición después del registro</label>
+        <small>Usa {nombre} para insertar el nombre del usuario</small>
+        <textarea id="msg_transicion_a_solicitud" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
+      </div>
+      
+      <div class="message-category">
+        <label>Problema detectado</label>
+        <small>Respuestas cuando se detecta un problema</small>
+        <textarea id="msg_problema_detectado" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
+      </div>
+      
+      <div class="message-category">
+        <label>Agradecimiento</label>
+        <small>Respuestas cuando el usuario agradece</small>
+        <textarea id="msg_agradecimiento" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
+      </div>
+      
+      <div class="message-category">
+        <label>Despedida</label>
+        <small>Respuestas cuando el usuario se despide</small>
+        <textarea id="msg_despedida" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
+      </div>
+      
+      <button class="btn btn-primary" onclick="saveMessages()" style="width: 100%; margin-top: 16px;">💾 Guardar Mensajes</button>
     </div>
 
-    <div id="result" class="text-center text-sm"></div>
+    <div id="result" style="text-align: center; margin-top: 20px; font-size: 14px;"></div>
   </main>
 
   <script>
+    let currentUser = null;
+
+    // Verificar autenticación
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('No autenticado');
+        return res.json();
+      })
+      .then(user => {
+        currentUser = user;
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        
+        if (user.role !== 'admin') {
+          document.getElementById('usersLink').style.display = 'none';
+          document.body.innerHTML = '<div style="text-align: center; padding: 100px; color: var(--text-muted);">No tienes permisos para acceder a esta página</div>';
+          return;
+        }
+        
+        loadGeneral();
+        loadAreas();
+        loadMessages();
+      })
+      .catch(() => {
+        window.location.href = '/login.html';
+      });
+
+    // Tema
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    }
+
     async function loadGeneral() {
-      const res = await fetch('/api/config/general');
-      const data = await res.json();
-      document.getElementById('botName').value = data.botName || '';
-      document.getElementById('minDelay').value = data.minDelayMs || 300;
-      document.getElementById('maxDelay').value = data.maxDelayMs || 800;
-      document.getElementById('threshold').value = data.priorityThreshold || 70;
-      document.getElementById('autoAlerts').checked = data.autoAlerts !== false;
+      try {
+        const res = await fetch('/api/config/general');
+        const data = await res.json();
+        
+        document.getElementById('botName').value = data.botName || '';
+        document.getElementById('minDelay').value = data.minDelayMs || 300;
+        document.getElementById('maxDelay').value = data.maxDelayMs || 800;
+        document.getElementById('threshold').value = data.priorityThreshold || 70;
+        document.getElementById('autoAlerts').checked = data.autoAlerts !== false;
+      } catch (error) {
+        console.error('Error:', error);
+      }
     }
 
     async function saveGeneral() {
@@ -125,65 +269,98 @@
         autoAlerts: document.getElementById('autoAlerts').checked
       };
 
-      await fetch('/api/config/general', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
+      try {
+        const res = await fetch('/api/config/general', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
 
-      showResult('✓ Configuración general guardada');
+        if (res.ok) {
+          showResult('✓ Configuración general guardada');
+        } else {
+          showResult('✗ Error al guardar', true);
+        }
+      } catch (error) {
+        showResult('✗ Error de red', true);
+      }
     }
 
     async function loadAreas() {
-      const res = await fetch('/api/areas');
-      const areas = await res.json();
-      document.getElementById('areasList').innerHTML = areas.map(a => `
-        <div class="flex justify-between items-center bg-slate-900 p-3 rounded border border-slate-700">
-          <span>${a}</span>
-          <button onclick="deleteArea('${a.replace(/'/g, "\\'")}')" class="text-red-400 hover:text-red-300 text-sm">Eliminar</button>
-        </div>
-      `).join('');
+      try {
+        const res = await fetch('/api/areas');
+        const areas = await res.json();
+        
+        document.getElementById('areasList').innerHTML = areas.map(a => `
+          <div class="area-item">
+            <span>${a}</span>
+            <button class="btn btn-danger" onclick="deleteArea('${a.replace(/'/g, "\\'")}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
+          </div>
+        `).join('');
+      } catch (error) {
+        console.error('Error:', error);
+      }
     }
 
     async function addArea() {
       const area = document.getElementById('newArea').value.trim();
       if (!area) return;
 
-      await fetch('/api/areas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ area })
-      });
+      try {
+        const res = await fetch('/api/areas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ area })
+        });
 
-      document.getElementById('newArea').value = '';
-      loadAreas();
-      showResult('✓ Área agregada');
+        if (res.ok) {
+          document.getElementById('newArea').value = '';
+          loadAreas();
+          showResult('✓ Área agregada');
+        } else {
+          showResult('✗ Error al agregar área', true);
+        }
+      } catch (error) {
+        showResult('✗ Error de red', true);
+      }
     }
 
     async function deleteArea(area) {
       if (!confirm(`¿Eliminar área "${area}"?`)) return;
 
-      await fetch('/api/areas', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ area })
-      });
+      try {
+        const res = await fetch('/api/areas', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ area })
+        });
 
-      loadAreas();
-      showResult('✓ Área eliminada');
+        if (res.ok) {
+          loadAreas();
+          showResult('✓ Área eliminada');
+        } else {
+          showResult('✗ Error al eliminar área', true);
+        }
+      } catch (error) {
+        showResult('✗ Error de red', true);
+      }
     }
 
     async function loadMessages() {
-      const res = await fetch('/api/config/messages');
-      const messages = await res.json();
-      
-      const categories = ['saludo', 'saludo_registrado', 'transicion_a_solicitud', 'problema_detectado', 'agradecimiento', 'despedida'];
-      categories.forEach(cat => {
-        const textarea = document.getElementById(`msg_${cat}`);
-        if (textarea && messages[cat]) {
-          textarea.value = messages[cat].join('\n');
-        }
-      });
+      try {
+        const res = await fetch('/api/config/messages');
+        const messages = await res.json();
+        
+        const categories = ['saludo', 'saludo_registrado', 'transicion_a_solicitud', 'problema_detectado', 'agradecimiento', 'despedida'];
+        categories.forEach(cat => {
+          const textarea = document.getElementById(`msg_${cat}`);
+          if (textarea && messages[cat]) {
+            textarea.value = messages[cat].join('\n');
+          }
+        });
+      } catch (error) {
+        console.error('Error:', error);
+      }
     }
 
     async function saveMessages() {
@@ -200,24 +377,28 @@
         }
       });
 
-      await fetch('/api/config/messages', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messages)
-      });
+      try {
+        const res = await fetch('/api/config/messages', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(messages)
+        });
 
-      showResult('✓ Mensajes guardados');
+        if (res.ok) {
+          showResult('✓ Mensajes guardados');
+        } else {
+          showResult('✗ Error al guardar mensajes', true);
+        }
+      } catch (error) {
+        showResult('✗ Error de red', true);
+      }
     }
 
-    function showResult(msg) {
+    function showResult(msg, isError = false) {
       const el = document.getElementById('result');
-      el.innerHTML = `<span class="text-green-400">${msg}</span>`;
+      el.innerHTML = `<span style="color: ${isError ? 'var(--error)' : 'var(--success)'};">${msg}</span>`;
       setTimeout(() => el.innerHTML = '', 3000);
     }
-
-    loadGeneral();
-    loadAreas();
-    loadMessages();
   </script>
 </body>
 </html>

@@ -709,25 +709,35 @@ class Handler {
         break;
       }
 
-      case 'actualizar_ticket':
+            case 'actualizar_ticket':
       case 'aclaracion': {
         const targetId = intent.ticket_id || (activeTicket ? activeTicket.id : null);
+        
         if (!targetId) {
-          response = 'No encontré el ticket. ¿Puedes indicarme el número del ticket?';
+          response = 'No encontré un ticket activo. ¿Puedes indicarme el número del ticket o describir el problema?';
           break;
         }
 
         ticket = this.store.getTicket(targetId);
         if (!ticket) {
-          response = `No encontré el ticket #T-${targetId}.`;
+          response = `No encontré el ticket #T-${targetId}. ¿Puedes verificar el número?`;
           break;
         }
 
         if (ticket.status === 'cerrada') {
-          response = `El ticket #T-${ticket.id} está cerrado. Para otro tema, describe el problema.`;
+          response = `El ticket #T-${ticket.id} está cerrado. Si necesitas ayuda con otro tema, descríbeme el problema.`;
           break;
         }
 
+        // Si el mensaje es muy corto o genérico, pedir más detalles
+        const genericMessages = /^(actualizar|agregar|añadir|informar|comentar|el\s+ticket|mi\s+ticket|ticket\s+(anterior|activo|actual|este))$/i;
+        
+        if (genericMessages.test(text.trim()) || text.length < 20) {
+          response = `Perfecto, veo que tienes el ticket #T-${ticket.id} sobre "${ticket.title}". ¿Qué información quieres agregar o qué problema tienes?`;
+          break;
+        }
+
+        // Si hay contenido sustancial, agregarlo al ticket
         appendUpdate({
           store: this.store,
           ticket,

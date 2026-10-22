@@ -4,132 +4,269 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Empleados - CONATEL</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-body {
+      padding: 24px;
+    }
+    
+    .form-group {
+      margin-bottom: 16px;
+    }
+    
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--text-secondary);
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
-      <h1 class="text-lg font-bold">CONATEL Panel</h1>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">C</div>
+      <div class="nav-title">
+        <h1>CONATEL Panel</h1>
+        <p>Sistema de Gestión de Tickets</p>
+      </div>
     </div>
-    <div class="flex gap-2 text-sm flex-wrap">
-      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
-      <a href="/employees.html" class="px-3 py-1.5 bg-blue-600 rounded">Empleados</a>
-      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="tickets.html">Tickets</a>
+      <a href="resolved.html">Resueltos</a>
+      <a href="employees.html" class="active">Empleados</a>
+      <a href="messages.html">Mensajes</a>
+      <a href="settings.html" id="settingsLink">Config</a>
+      <a href="users.html" id="usersLink">Usuarios</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <div class="user-info">
+        <span id="userName">Usuario</span>
+        <span id="userRole" class="badge badge-info"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
     </div>
   </nav>
 
-  <main class="max-w-7xl mx-auto p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold">Empleados encargados</h2>
-      <button onclick="openForm()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded font-bold">+ Nuevo empleado</button>
+  <main>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h2 style="font-size: 28px; font-weight: 600;">Empleados</h2>
+      <button id="addBtn" class="btn btn-primary" onclick="openForm()">+ Nuevo Empleado</button>
     </div>
 
-    <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-      <table class="w-full text-sm">
-        <thead class="bg-slate-900 text-left text-slate-400 uppercase text-xs">
+    <div class="card">
+      <table>
+        <thead>
           <tr>
-            <th class="p-4">Nombre</th>
-            <th class="p-4">Teléfono</th>
-            <th class="p-4">Área</th>
-            <th class="p-4">Cargo</th>
-            <th class="p-4">Acciones</th>
+            <th>Nombre</th>
+            <th>Teléfono</th>
+            <th>Área</th>
+            <th>Cargo</th>
+            <th id="actionsHeader">Acciones</th>
           </tr>
         </thead>
-        <tbody id="employees"></tbody>
+        <tbody id="employeesTableBody">
+          <tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
+        </tbody>
       </table>
     </div>
   </main>
 
-  <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-800 rounded-lg p-6 max-w-md w-full border border-slate-700">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-xl font-bold" id="modalTitle">Nuevo empleado</h3>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-white">✕</button>
+  <!-- Modal de Formulario -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modalTitle" style="font-size: 20px; font-weight: 600;">Nuevo Empleado</h3>
+        <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">✕</button>
       </div>
-      <form id="employeeForm" class="space-y-3">
-        <input type="hidden" id="editPhone" />
-        <div>
-          <label class="text-sm text-slate-400">Nombre completo</label>
-          <input id="fName" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-        </div>
-        <div>
-          <label class="text-sm text-slate-400">Teléfono (con código país)</label>
-          <input id="fPhone" required placeholder="59170000000" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-        </div>
-        <div>
-          <label class="text-sm text-slate-400">Área</label>
-          <select id="fArea" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1">
-            <!-- Se cargan dinámicamente -->
-          </select>
-        </div>
-        <div>
-          <label class="text-sm text-slate-400">Cargo</label>
-          <input id="fRole" required class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-        </div>
-        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Guardar</button>
-      </form>
+      
+      <div class="modal-body">
+        <form id="employeeForm">
+          <input type="hidden" id="editPhone" />
+          
+          <div class="form-group">
+            <label>Nombre Completo</label>
+            <input type="text" id="fName" required />
+          </div>
+          
+          <div class="form-group">
+            <label>Teléfono (con código país)</label>
+            <input type="text" id="fPhone" required placeholder="59170000000" />
+          </div>
+          
+          <div class="form-group">
+            <label>Área</label>
+            <select id="fArea" required></select>
+          </div>
+          
+          <div class="form-group">
+            <label>Cargo</label>
+            <input type="text" id="fRole" required />
+          </div>
+          
+          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Guardar</button>
+        </form>
+      </div>
     </div>
   </div>
 
   <script>
+    let currentUser = null;
+    let allAreas = [];
+
+    // Verificar autenticación
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('No autenticado');
+        return res.json();
+      })
+      .then(user => {
+        currentUser = user;
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        
+        if (user.role !== 'admin') {
+          document.getElementById('settingsLink').style.display = 'none';
+          document.getElementById('usersLink').style.display = 'none';
+          document.getElementById('addBtn').style.display = 'none';
+          document.getElementById('actionsHeader').style.display = 'none';
+        }
+      })
+      .catch(() => {
+        window.location.href = '/login.html';
+      });
+
+    // Tema
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    }
+
     async function loadAreas() {
       const res = await fetch('/api/areas');
-      const areas = await res.json();
+      allAreas = await res.json();
       const select = document.getElementById('fArea');
-      select.innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
+      select.innerHTML = allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
     }
 
     async function load() {
-      const res = await fetch('/api/employees');
-      const employees = await res.json();
+      try {
+        const res = await fetch('/api/employees');
+        const employees = await res.json();
 
-      document.getElementById('employees').innerHTML = employees.length
-        ? employees.map(e => `
-          <tr class="border-t border-slate-700 hover:bg-slate-700/50">
-            <td class="p-4">${e.name}</td>
-            <td class="p-4 font-mono">${e.phone}</td>
-            <td class="p-4">${e.area}</td>
-            <td class="p-4">${e.role}</td>
-            <td class="p-4 space-x-2">
-              <button onclick='editEmployee(${JSON.stringify(e)})' class="text-blue-400 hover:underline text-xs">Editar</button>
-              <button onclick="deleteEmployee('${e.phone}')" class="text-red-400 hover:underline text-xs">Eliminar</button>
-            </td>
-          </tr>
-        `).join('')
-        : '<tr><td colspan="5" class="p-6 text-center text-slate-400">No hay empleados registrados</td></tr>';
+        const tbody = document.getElementById('employeesTableBody');
+        if (employees.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay empleados registrados</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = employees.map(e => {
+          const actions = currentUser && currentUser.role === 'admin'
+            ? `<td>
+                <button class="btn btn-secondary" onclick='editEmployee(${JSON.stringify(e)})' style="padding: 6px 12px; font-size: 13px; margin-right: 8px;">Editar</button>
+                <button class="btn btn-danger" onclick="deleteEmployee('${e.phone}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
+              </td>`
+            : '<td style="color: var(--text-muted);">-</td>';
+          
+          return `
+            <tr>
+              <td>${e.name}</td>
+              <td style="font-family: monospace;">${e.phone}</td>
+              <td>${e.area}</td>
+              <td>${e.role}</td>
+              ${actions}
+            </tr>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error:', error);
+      }
     }
 
     function openForm() {
-      document.getElementById('modalTitle').textContent = 'Nuevo empleado';
+      if (!currentUser || currentUser.role !== 'admin') return;
+      
+      document.getElementById('modalTitle').textContent = 'Nuevo Empleado';
       document.getElementById('editPhone').value = '';
       document.getElementById('employeeForm').reset();
       document.getElementById('fPhone').disabled = false;
-      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('active');
     }
 
     function editEmployee(e) {
-      document.getElementById('modalTitle').textContent = 'Editar empleado';
+      if (!currentUser || currentUser.role !== 'admin') return;
+      
+      document.getElementById('modalTitle').textContent = 'Editar Empleado';
       document.getElementById('editPhone').value = e.phone;
       document.getElementById('fName').value = e.name;
       document.getElementById('fPhone').value = e.phone;
       document.getElementById('fPhone').disabled = true;
       document.getElementById('fArea').value = e.area;
       document.getElementById('fRole').value = e.role;
-      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('active');
     }
 
     async function deleteEmployee(phone) {
+      if (!currentUser || currentUser.role !== 'admin') return;
       if (!confirm('¿Eliminar empleado?')) return;
-      await fetch(`/api/employees/${phone}`, { method: 'DELETE' });
-      load();
+      
+      try {
+        await fetch(`/api/employees/${phone}`, { method: 'DELETE' });
+        load();
+      } catch (error) {
+        alert('Error al eliminar');
+      }
     }
 
     document.getElementById('employeeForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      
       const editPhone = document.getElementById('editPhone').value;
       const data = {
         name: document.getElementById('fName').value,
@@ -138,26 +275,30 @@
         role: document.getElementById('fRole').value
       };
 
-      if (editPhone) {
-        await fetch(`/api/employees/${editPhone}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-      } else {
-        await fetch('/api/employees', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
-        });
-      }
+      try {
+        if (editPhone) {
+          await fetch(`/api/employees/${editPhone}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        } else {
+          await fetch('/api/employees', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+        }
 
-      closeModal();
-      load();
+        closeModal();
+        load();
+      } catch (error) {
+        alert('Error al guardar');
+      }
     });
 
     function closeModal() {
-      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('active');
     }
 
     loadAreas();

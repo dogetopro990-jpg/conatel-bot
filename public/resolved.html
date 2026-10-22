@@ -3,100 +3,214 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tickets Resueltos - CONATEL Panel</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Resueltos - CONATEL</title>
+  <link rel="stylesheet" href="/css/theme.css" />
   <style>
-    .custom-scroll::-webkit-scrollbar { width: 6px; }
-    .custom-scroll::-webkit-scrollbar-track { background: #1e293b; }
-    .custom-scroll::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: var(--bg-secondary);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 800px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+    }
+    
+    .modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .modal-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    
+    .info-item {
+      background: var(--bg-tertiary);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .info-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    
+    .info-value {
+      font-size: 14px;
+      font-weight: 500;
+    }
+    
+    .message-list {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--bg-tertiary);
+    }
+    
+    .message-item {
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .message-text {
+      font-size: 14px;
+      line-height: 1.5;
+    }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center font-bold text-lg">C</div>
-      <div>
-        <h1 class="text-lg font-bold">CONATEL Panel</h1>
-        <p class="text-xs text-slate-400">Tickets Resueltos</p>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">C</div>
+      <div class="nav-title">
+        <h1>CONATEL Panel</h1>
+        <p>Sistema de Gestión de Tickets</p>
       </div>
     </div>
-    <div class="flex gap-2 text-sm flex-wrap">
-      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="/resolved.html" class="px-3 py-1.5 bg-green-600 rounded">✅ Resueltos</a>
-      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
-      <a href="/messages.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Mensajes</a>
-      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="tickets.html">Tickets</a>
+      <a href="resolved.html" class="active">Resueltos</a>
+      <a href="employees.html">Empleados</a>
+      <a href="messages.html">Mensajes</a>
+      <a href="settings.html" id="settingsLink">Config</a>
+      <a href="users.html" id="usersLink">Usuarios</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <div class="user-info">
+        <span id="userName">Usuario</span>
+        <span id="userRole" class="badge badge-info"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
     </div>
   </nav>
 
-  <main class="max-w-7xl mx-auto p-6">
-    <div class="flex justify-between items-center mb-6">
-      <h2 class="text-2xl font-bold flex items-center gap-2">
-        ✅ Tickets Resueltos <span id="ticketCount" class="text-sm bg-slate-700 px-2 py-0.5 rounded-full">0</span>
-      </h2>
-      <button onclick="loadData()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded text-sm">🔄 Actualizar</button>
+  <main>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h2 style="font-size: 28px; font-weight: 600;">Tickets Resueltos <span id="ticketCount" class="badge badge-success">0</span></h2>
+      <button class="btn btn-secondary" onclick="loadData()">🔄 Actualizar</button>
     </div>
 
-    <div class="bg-slate-800 rounded-lg p-4 mb-6 flex flex-wrap gap-3 border border-slate-700">
-      <select id="filterArea" class="bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm">
-        <option value="">Todas las áreas</option>
-      </select>
-      <input id="filterSearch" placeholder="Buscar (ID, título, nombre)..." class="flex-1 min-w-[200px] bg-slate-900 border border-slate-700 px-3 py-2 rounded text-sm" />
-    </div>
-
-    <div class="bg-slate-800 rounded-lg overflow-hidden border border-slate-700">
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm text-left">
-          <thead class="bg-slate-900 text-slate-400 uppercase text-xs">
-            <tr>
-              <th class="p-4">ID</th>
-              <th class="p-4">Título</th>
-              <th class="p-4">Solicitante</th>
-              <th class="p-4">Área</th>
-              <th class="p-4">Asignado a</th>
-              <th class="p-4">Resuelto el</th>
-              <th class="p-4 text-center">Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="ticketsTableBody" class="divide-y divide-slate-700">
-            <tr><td colspan="7" class="p-8 text-center text-slate-500">Cargando datos...</td></tr>
-          </tbody>
-        </table>
+    <div class="card" style="margin-bottom: 24px;">
+      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+        <select id="filterArea" style="max-width: 200px;">
+          <option value="">Todas las áreas</option>
+        </select>
+        <input id="filterSearch" placeholder="Buscar..." style="flex: 1; min-width: 200px;" />
       </div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Título</th>
+            <th>Solicitante</th>
+            <th>Área</th>
+            <th>Asignado a</th>
+            <th>Resuelto el</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="ticketsTableBody">
+          <tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
+        </tbody>
+      </table>
     </div>
   </main>
 
-  <div id="modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-    <div class="bg-slate-800 rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-slate-700">
-      <div class="flex justify-between items-center p-5 border-b border-slate-700">
+  <!-- Modal de Detalle -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
         <div>
-          <h3 class="text-xl font-bold" id="modalTitle">Ticket</h3>
-          <p class="text-xs text-slate-400 mt-1" id="modalSubtitle"></p>
+          <h3 id="modalTitle" style="font-size: 20px; font-weight: 600;">Ticket</h3>
+          <p id="modalSubtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></p>
         </div>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-white p-2 rounded-full">✕</button>
+        <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">✕</button>
       </div>
-
-      <div class="p-5 overflow-y-auto custom-scroll flex-1 space-y-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-lg">
-          <div>
-            <span class="text-xs text-slate-500 uppercase">Descripción</span>
-            <p class="text-sm mt-1" id="modalDescription"></p>
+      
+      <div class="modal-body">
+        <div class="info-grid">
+          <div class="info-item">
+            <div class="info-label">Solicitante</div>
+            <div class="info-value" id="modalRequester"></div>
           </div>
-          <div class="space-y-2">
-            <div class="flex justify-between"><span class="text-xs text-slate-500">Solicitante</span><span id="modalRequester"></span></div>
-            <div class="flex justify-between"><span class="text-xs text-slate-500">Área</span><span id="modalArea"></span></div>
-            <div class="flex justify-between"><span class="text-xs text-slate-500">Asignado a</span><span id="modalAssignee"></span></div>
+          <div class="info-item">
+            <div class="info-label">Área</div>
+            <div class="info-value" id="modalArea"></div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Asignado a</div>
+            <div class="info-value" id="modalAssignee"></div>
+          </div>
+          <div class="info-item">
+            <div class="info-label">Resuelto el</div>
+            <div class="info-value" id="modalResolvedAt"></div>
           </div>
         </div>
 
-        <div>
-          <h4 class="font-bold text-sm mb-3">📜 Historial</h4>
-          <div id="modalHistory" class="space-y-3 max-h-64 overflow-y-auto custom-scroll pr-2"></div>
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Descripción</h4>
+          <p id="modalDescription" style="font-size: 14px; line-height: 1.6; color: var(--text-secondary);"></p>
         </div>
 
-        <div class="border-t border-slate-700 pt-5">
-          <button onclick="reopenTicket()" class="w-full bg-yellow-600 hover:bg-yellow-700 py-2.5 rounded-lg font-semibold text-white transition">
+        <div style="margin-bottom: 20px;">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">📝 Historial de Mensajes</h4>
+          <div id="messageList" class="message-list"></div>
+        </div>
+
+        <div id="adminControls" style="padding-top: 20px; border-top: 1px solid var(--border);">
+          <button class="btn btn-primary" onclick="reopenTicket()" style="width: 100%;">
             🔄 Reabrir Ticket (Mover a Activos)
           </button>
         </div>
@@ -105,10 +219,48 @@
   </div>
 
   <script>
+    let currentUser = null;
     let allTickets = [];
     let allEmployees = [];
     let allAreas = [];
     let currentTicketId = null;
+
+    // Verificar autenticación
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('No autenticado');
+        return res.json();
+      })
+      .then(user => {
+        currentUser = user;
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        
+        if (user.role !== 'admin') {
+          document.getElementById('settingsLink').style.display = 'none';
+          document.getElementById('usersLink').style.display = 'none';
+          document.getElementById('adminControls').style.display = 'none';
+        }
+      })
+      .catch(() => {
+        window.location.href = '/login.html';
+      });
+
+    // Tema
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    }
 
     async function loadData() {
       try {
@@ -117,8 +269,6 @@
           fetch('/api/employees'),
           fetch('/api/areas')
         ]);
-
-        if (!ticketsRes.ok) throw new Error(`API: ${ticketsRes.status}`);
         
         allTickets = await ticketsRes.json();
         allEmployees = await empRes.json();
@@ -131,12 +281,9 @@
           allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
         areaFilter.value = currentValue;
 
-        console.log(`✅ Cargados: ${allTickets.length} tickets resueltos`);
         renderTickets();
       } catch (error) {
-        console.error('❌ Error:', error);
-        document.getElementById('ticketsTableBody').innerHTML = 
-          `<tr><td colspan="7" class="p-8 text-center text-red-400">Error: ${error.message}</td></tr>`;
+        console.error('Error:', error);
       }
     }
 
@@ -157,24 +304,22 @@
       const tbody = document.getElementById('ticketsTableBody');
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500">No hay tickets resueltos.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay tickets resueltos</td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(t => `
-        <tr class="hover:bg-slate-700/40 transition">
-          <td class="p-4 font-mono text-green-400">#T-${t.id}</td>
-          <td class="p-4 max-w-xs truncate text-slate-300">${t.title}</td>
-          <td class="p-4">
+        <tr>
+          <td style="font-family: monospace; color: var(--success);">#T-${t.id}</td>
+          <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.title}">${t.title}</td>
+          <td>
             <div>${t.requesterName || 'Desconocido'}</div>
-            <div class="text-xs text-slate-500">${t.requesterPhone}</div>
+            <div style="font-size: 12px; color: var(--text-muted);">${t.requesterPhone}</div>
           </td>
-          <td class="p-4 text-slate-300">${t.area}</td>
-          <td class="p-4 text-slate-400">${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span class="italic text-slate-600">Sin asignar</span>'}</td>
-          <td class="p-4 text-slate-400 text-xs">${new Date(t.updatedAt).toLocaleString()}</td>
-          <td class="p-4 text-center">
-            <button onclick="viewTicket(${t.id})" class="text-green-400 hover:bg-green-500/10 px-3 py-1.5 rounded text-xs font-medium">Ver</button>
-          </td>
+          <td>${t.area}</td>
+          <td>${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span style="color: var(--text-muted);">Sin asignar</span>'}</td>
+          <td style="font-size: 13px; color: var(--text-muted);">${new Date(t.updatedAt).toLocaleString()}</td>
+          <td><button class="btn btn-secondary" onclick="viewTicket(${t.id})" style="padding: 6px 12px; font-size: 13px;">Ver</button></td>
         </tr>
       `).join('');
     }
@@ -195,28 +340,33 @@
       document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
       document.getElementById('modalArea').textContent = t.area;
       document.getElementById('modalAssignee').textContent = t.assignedTo ? getEmployeeName(t.assignedTo) : 'Sin asignar';
+      document.getElementById('modalResolvedAt').textContent = new Date(t.updatedAt).toLocaleString();
 
-      const historyContainer = document.getElementById('modalHistory');
+      // Renderizar mensajes
+      const messageList = document.getElementById('messageList');
       if (t.messages && t.messages.length > 0) {
-        historyContainer.innerHTML = t.messages.map(m => {
+        messageList.innerHTML = t.messages.map(m => {
           const isBot = m.from === 'bot' || m.from === 'panel';
-          const bg = isBot ? 'bg-blue-900/20 border-blue-800' : 'bg-slate-700/50 border-slate-600';
-          const label = isBot ? '🤖 Sistema' : `👤 ${m.name}`;
-          const kindLabel = m.kind === 'observacion_cierre' ? ' 📝' : '';
+          const name = isBot ? '🤖 Sistema' : `👤 ${m.name}`;
           return `
-            <div class="text-[10px] text-slate-500 mb-1">${label}${kindLabel} • ${new Date(m.at).toLocaleString()}</div>
-            <div class="${bg} border p-3 rounded-lg mb-3 text-sm">${m.text}</div>
+            <div class="message-item">
+              <div class="message-header">
+                <span>${name}</span>
+                <span>${new Date(m.at).toLocaleString()}</span>
+              </div>
+              <div class="message-text">${m.text}</div>
+            </div>
           `;
         }).join('');
       } else {
-        historyContainer.innerHTML = `<div class="text-sm text-slate-500 italic text-center py-4">Sin mensajes</div>`;
+        messageList.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">Sin mensajes</p>';
       }
 
-      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal').classList.add('active');
     }
 
     async function reopenTicket() {
-      if (!currentTicketId) return;
+      if (!currentTicketId || !currentUser || currentUser.role !== 'admin') return;
       if (!confirm('¿Reabrir este ticket? Volverá a la bandeja de Tickets Activos.')) return;
 
       try {
@@ -238,13 +388,15 @@
     }
 
     function closeModal() {
-      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal').classList.remove('active');
       currentTicketId = null;
     }
 
     document.getElementById('filterArea').addEventListener('change', renderTickets);
     document.getElementById('filterSearch').addEventListener('input', renderTickets);
-    document.getElementById('modal').addEventListener('click', (e) => { if (e.target.id === 'modal') closeModal(); });
+    document.getElementById('modal').addEventListener('click', (e) => {
+      if (e.target.id === 'modal') closeModal();
+    });
 
     loadData();
     setInterval(loadData, 15000);

@@ -1,0 +1,62 @@
+{
+  "employees": {
+    "50432412123": {
+      "name": "Yunior Alejandro Vásquez",
+      "area": "Gerencia General",
+      "role": "Director",
+      "registeredAt": "2026-10-21T15:54:25.943Z",
+      "phone": "50432412123",
+      "updatedAt": "2026-10-21T15:54:25.943Z"
+    }
+  },
+  "tickets": {
+    "2": {
+      "id": 2,
+      "chatId": "273761836204183@lid",
+      "requesterPhone": "50432412123",
+      "requesterName": "Alejandro 🤟",
+      "title": "La impresora no funciona",
+      "description": "La impresora no funciona",
+      "area": "soporte",
+      "urgency": "critica",
+      "status": "abierta",
+      "assignedTo": null,
+      "priorityLevel": "critica",
+      "score": 86,
+      "createdAt": "2026-10-21T15:55:39.390Z",
+      "updatedAt": "2026-10-22T14:49:04.167Z",
+      "messages": [
+        {
+          "from": "50432412123",
+          "name": "Alejandro 🤟",
+          "text": "La impresora no funciona",
+          "kind": "mensaje",
+          "at": "2026-10-21T15:55:39.390Z"
+        },
+        {
+          "from": "50432412123",
+          "name": "Alejandro 🤟",
+          "text": "La impresora no funciona",
+          "kind": "aclaracion",
+          "at": "2026-10-21T15:55:40.713Z"
+        }
+      ],
+      "kind": "aclaracion",
+      "lastAlertAt": "2026-10-22T14:49:04.167Z"
+    }
+  },
+  "sessions": {},
+  "activeTickets": {},
+  "settings": {
+    "autoAlerts": true,
+    "priorityThreshold": 70,
+    "areaNotifications": {
+      "soporte": true,
+      "infraestructura": true,
+      "desarrollo": true
+    }
+  },
+  "counters": {
+    "ticket": 100
+  }
+}

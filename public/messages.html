@@ -4,150 +4,494 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mensajes - CONATEL</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    .chat-layout {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+      height: calc(100vh - 200px);
+    }
+    
+    .contacts-panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .contacts-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-tertiary);
+    }
+    
+    .contacts-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    
+    .contact-item {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .contact-item:hover {
+      background: var(--bg-hover);
+    }
+    
+    .contact-item.active {
+      background: var(--bg-hover);
+      border-left: 3px solid var(--accent);
+    }
+    
+    .contact-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 16px;
+    }
+    
+    .contact-info {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .contact-name {
+      font-weight: 500;
+      font-size: 14px;
+      margin-bottom: 2px;
+    }
+    
+    .contact-area {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    
+    .chat-panel {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: var(--bg-primary);
+    }
+    
+    .message {
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .message.sent {
+      align-items: flex-end;
+    }
+    
+    .message.received {
+      align-items: flex-start;
+    }
+    
+    .message-bubble {
+      max-width: 70%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    
+    .message.sent .message-bubble {
+      background: var(--accent);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .message.received .message-bubble {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    
+    .message-time {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+    
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--bg-secondary);
+      display: flex;
+      gap: 12px;
+    }
+    
+    .chat-input-area input {
+      flex: 1;
+    }
+    
+    .no-chat-selected {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 16px;
+    }
+    
+    .broadcast-section {
+      margin-top: 20px;
+    }
+    
+    @media (max-width: 768px) {
+      .chat-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      
+      .contacts-panel {
+        max-height: 300px;
+      }
+    }
+  </style>
 </head>
-<body class="bg-slate-900 text-slate-100 min-h-screen">
-  <nav class="bg-slate-800 border-b border-slate-700 px-6 py-4 flex items-center justify-between sticky top-0 z-40">
-    <div class="flex items-center gap-3">
-      <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center font-bold">C</div>
-      <h1 class="text-lg font-bold">CONATEL Panel</h1>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">C</div>
+      <div class="nav-title">
+        <h1>CONATEL Panel</h1>
+        <p>Sistema de Gestión de Tickets</p>
+      </div>
     </div>
-    <div class="flex gap-2 text-sm flex-wrap">
-      <a href="/" class="px-3 py-1.5 hover:bg-slate-700 rounded">Dashboard</a>
-      <a href="/tickets.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Tickets</a>
-      <a href="/resolved.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">✅ Resueltos</a>
-      <a href="/employees.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Empleados</a>
-      <a href="/messages.html" class="px-3 py-1.5 bg-blue-600 rounded">Mensajes</a>
-      <a href="/settings.html" class="px-3 py-1.5 hover:bg-slate-700 rounded">Config</a>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="tickets.html">Tickets</a>
+      <a href="resolved.html">Resueltos</a>
+      <a href="employees.html">Empleados</a>
+      <a href="messages.html" class="active">Mensajes</a>
+      <a href="settings.html" id="settingsLink">Config</a>
+      <a href="users.html" id="usersLink">Usuarios</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <div class="user-info">
+        <span id="userName">Usuario</span>
+        <span id="userRole" class="badge badge-info"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
     </div>
   </nav>
 
-  <main class="max-w-4xl mx-auto p-6">
-    <h2 class="text-2xl font-bold mb-6">Enviar mensajes</h2>
-
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h3 class="font-bold mb-4">Mensaje individual</h3>
-        <form id="individualForm" class="space-y-3">
-          <div>
-            <label class="text-sm text-slate-400">Destinatario (teléfono)</label>
-            <input id="iTo" required placeholder="59170000000" class="w-full bg-slate-700 px-3 py-2 rounded mt-1" />
-          </div>
-          <div>
-            <label class="text-sm text-slate-400">Mensaje</label>
-            <textarea id="iText" required rows="4" class="w-full bg-slate-700 px-3 py-2 rounded mt-1"></textarea>
-          </div>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Enviar</button>
-          <div id="iResult" class="text-sm"></div>
-        </form>
+  <main>
+    <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 24px;">Mensajería</h2>
+    
+    <div class="chat-layout">
+      <!-- Panel de Contactos -->
+      <div class="contacts-panel">
+        <div class="contacts-header">
+          <input type="text" id="searchContact" placeholder="Buscar empleado..." style="width: 100%;" />
+        </div>
+        <div class="contacts-list" id="contactsList">
+          <p style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando empleados...</p>
+        </div>
       </div>
 
-      <div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
-        <h3 class="font-bold mb-4">Mensaje a área</h3>
-        <form id="areaForm" class="space-y-3">
-          <div>
-            <label class="text-sm text-slate-400">Área</label>
-            <select id="aArea" class="w-full bg-slate-700 px-3 py-2 rounded mt-1">
-              <option value="">Todos los empleados</option>
-            </select>
+      <!-- Panel de Chat -->
+      <div class="chat-panel" id="chatPanel">
+        <div class="no-chat-selected" id="noChatSelected">
+          Selecciona un empleado para iniciar una conversación
+        </div>
+        
+        <div id="chatContent" style="display: none; flex-direction: column; height: 100%;">
+          <div class="chat-header">
+            <div class="contact-avatar" id="chatAvatar">?</div>
+            <div>
+              <div style="font-weight: 600;" id="chatName">Empleado</div>
+              <div style="font-size: 12px; color: var(--text-muted);" id="chatArea">Área</div>
+            </div>
           </div>
-          <div>
-            <label class="text-sm text-slate-400">Mensaje</label>
-            <textarea id="aText" required rows="4" class="w-full bg-slate-700 px-3 py-2 rounded mt-1"></textarea>
+          
+          <div class="chat-messages" id="chatMessages">
+            <p style="text-align: center; color: var(--text-muted); padding: 40px;">No hay mensajes aún</p>
           </div>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Enviar a todos</button>
-          <div id="aResult" class="text-sm"></div>
-        </form>
+          
+          <div class="chat-input-area">
+            <input type="text" id="messageInput" placeholder="Escribe un mensaje..." onkeypress="if(event.key==='Enter')sendMessage()" />
+            <button class="btn btn-primary" onclick="sendMessage()">Enviar</button>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="bg-slate-800 rounded-lg p-6 mt-6 border border-slate-700">
-      <h3 class="font-bold mb-4">Empleados por área</h3>
-      <div id="areaList" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+    <!-- Sección de Broadcast -->
+    <div class="broadcast-section card" id="broadcastSection" style="margin-top: 24px;">
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">📢 Mensaje Masivo</h3>
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px;">
+        <select id="broadcastArea">
+          <option value="">Todos los empleados</option>
+        </select>
+        <input type="text" id="broadcastMessage" placeholder="Escribe tu mensaje masivo..." />
+      </div>
+      <button class="btn btn-primary" onclick="sendBroadcast()">Enviar a Todos</button>
+      <div id="broadcastResult" style="margin-top: 12px; font-size: 14px;"></div>
     </div>
   </main>
 
   <script>
-    async function loadAreas() {
-      const res = await fetch('/api/areas');
-      const areas = await res.json();
-      const select = document.getElementById('aArea');
-      select.innerHTML = '<option value="">Todos los empleados</option>' + 
-        areas.map(a => `<option value="${a}">${a}</option>`).join('');
+    let currentUser = null;
+    let allEmployees = [];
+    let allAreas = [];
+    let selectedEmployee = null;
+    let messageHistory = {};
+
+    // Verificar autenticación
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('No autenticado');
+        return res.json();
+      })
+      .then(user => {
+        currentUser = user;
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        
+        if (user.role !== 'admin') {
+          document.getElementById('settingsLink').style.display = 'none';
+          document.getElementById('usersLink').style.display = 'none';
+          document.getElementById('broadcastSection').style.display = 'none';
+        }
+        
+        loadEmployees();
+      })
+      .catch(() => {
+        window.location.href = '/login.html';
+      });
+
+    // Tema
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
     }
 
     async function loadEmployees() {
-      const [empRes, areasRes] = await Promise.all([
-        fetch('/api/employees'),
-        fetch('/api/areas')
-      ]);
-      
-      const employees = await empRes.json();
-      const areas = await areasRes.json();
+      try {
+        const [empRes, areasRes] = await Promise.all([
+          fetch('/api/employees'),
+          fetch('/api/areas')
+        ]);
+        
+        allEmployees = await empRes.json();
+        allAreas = await areasRes.json();
 
-      const byArea = {};
-      areas.forEach(a => byArea[a] = []);
-      
-      employees.forEach((e) => {
-        if (byArea[e.area]) byArea[e.area].push(e);
-      });
-
-      document.getElementById('areaList').innerHTML = Object.entries(byArea)
-        .map(([area, list]) => `
-          <div class="bg-slate-900 p-4 rounded border border-slate-700">
-            <h4 class="font-bold mb-2">${area} (${list.length})</h4>
-            ${list.length
-              ? list.map(e => `
-                <div class="text-sm py-1 border-b border-slate-700 last:border-0">
-                  <div>${e.name}</div>
-                  <div class="text-xs text-slate-400">${e.phone} • ${e.role}</div>
-                </div>
-              `).join('')
-              : '<div class="text-sm text-slate-400">Sin empleados</div>'
-            }
-          </div>
-        `).join('');
+        renderContacts();
+        
+        // Actualizar dropdown de broadcast
+        const broadcastArea = document.getElementById('broadcastArea');
+        broadcastArea.innerHTML = '<option value="">Todos los empleados</option>' + 
+          allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
+      } catch (error) {
+        console.error('Error:', error);
+      }
     }
 
-    document.getElementById('individualForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const to = document.getElementById('iTo').value;
-      const text = document.getElementById('iText').value;
+    function renderContacts(filter = '') {
+      const filtered = allEmployees.filter(e => 
+        e.name.toLowerCase().includes(filter.toLowerCase()) ||
+        e.area.toLowerCase().includes(filter.toLowerCase())
+      );
 
-      const res = await fetch('/api/messages/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to, text })
-      });
-      const data = await res.json();
+      const contactsList = document.getElementById('contactsList');
+      
+      if (filtered.length === 0) {
+        contactsList.innerHTML = '<p style="text-align: center; padding: 40px; color: var(--text-muted);">No se encontraron empleados</p>';
+        return;
+      }
 
-      document.getElementById('iResult').innerHTML = data.ok
-        ? '<span class="text-green-400">✓ Mensaje enviado</span>'
-        : `<span class="text-red-400">✗ Error: ${data.error}</span>`;
+      contactsList.innerHTML = filtered.map(e => {
+        const initial = e.name.charAt(0).toUpperCase();
+        const isActive = selectedEmployee && selectedEmployee.phone === e.phone;
+        
+        return `
+          <div class="contact-item ${isActive ? 'active' : ''}" onclick="selectEmployee('${e.phone}')">
+            <div class="contact-avatar">${initial}</div>
+            <div class="contact-info">
+              <div class="contact-name">${e.name}</div>
+              <div class="contact-area">${e.area} • ${e.role}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
-      if (data.ok) document.getElementById('iText').value = '';
+    function selectEmployee(phone) {
+      selectedEmployee = allEmployees.find(e => e.phone === phone);
+      if (!selectedEmployee) return;
+
+      document.getElementById('noChatSelected').style.display = 'none';
+      document.getElementById('chatContent').style.display = 'flex';
+
+      const initial = selectedEmployee.name.charAt(0).toUpperCase();
+      document.getElementById('chatAvatar').textContent = initial;
+      document.getElementById('chatName').textContent = selectedEmployee.name;
+      document.getElementById('chatArea').textContent = `${selectedEmployee.area} • ${selectedEmployee.phone}`;
+
+      renderContacts(document.getElementById('searchContact').value);
+      loadMessages();
+    }
+
+    function loadMessages() {
+      if (!selectedEmployee) return;
+
+      const messages = messageHistory[selectedEmployee.phone] || [];
+      const chatMessages = document.getElementById('chatMessages');
+
+      if (messages.length === 0) {
+        chatMessages.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 40px;">Inicia una conversación</p>';
+        return;
+      }
+
+      chatMessages.innerHTML = messages.map(m => {
+        const type = m.from === 'panel' ? 'sent' : 'received';
+        const time = new Date(m.at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+        
+        return `
+          <div class="message ${type}">
+            <div class="message-bubble">${m.text}</div>
+            <div class="message-time">${time}</div>
+          </div>
+        `;
+      }).join('');
+
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async function sendMessage() {
+      if (!selectedEmployee) return;
+
+      const input = document.getElementById('messageInput');
+      const text = input.value.trim();
+      if (!text) return;
+
+      try {
+        const res = await fetch('/api/messages/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            to: selectedEmployee.phone,
+            text
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+          // Agregar mensaje al historial local
+          if (!messageHistory[selectedEmployee.phone]) {
+            messageHistory[selectedEmployee.phone] = [];
+          }
+          
+          messageHistory[selectedEmployee.phone].push({
+            from: 'panel',
+            text,
+            at: new Date().toISOString()
+          });
+
+          input.value = '';
+          loadMessages();
+        } else {
+          alert('Error al enviar mensaje: ' + (data.error || 'Desconocido'));
+        }
+      } catch (error) {
+        alert('Error de red al enviar mensaje');
+      }
+    }
+
+    async function sendBroadcast() {
+      if (!currentUser || currentUser.role !== 'admin') return;
+
+      const area = document.getElementById('broadcastArea').value;
+      const text = document.getElementById('broadcastMessage').value.trim();
+      
+      if (!text) {
+        alert('Escribe un mensaje');
+        return;
+      }
+
+      if (!confirm(`¿Enviar mensaje a ${area || 'todos los empleados'}?`)) return;
+
+      try {
+        const res = await fetch('/api/messages/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ area: area || undefined, text })
+        });
+
+        const data = await res.json();
+        const resultEl = document.getElementById('broadcastResult');
+        
+        if (data.ok) {
+          resultEl.innerHTML = `<span style="color: var(--success);">✓ Mensaje enviado a ${data.sent}/${data.total} empleados</span>`;
+          document.getElementById('broadcastMessage').value = '';
+        } else {
+          resultEl.innerHTML = `<span style="color: var(--error);">✗ Error: ${data.error}</span>`;
+        }
+      } catch (error) {
+        document.getElementById('broadcastResult').innerHTML = `<span style="color: var(--error);">✗ Error de red</span>`;
+      }
+    }
+
+    document.getElementById('searchContact').addEventListener('input', (e) => {
+      renderContacts(e.target.value);
     });
 
-    document.getElementById('areaForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const area = document.getElementById('aArea').value;
-      const text = document.getElementById('aText').value;
-
-      const res = await fetch('/api/messages/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ area: area || undefined, text })
-      });
-      const data = await res.json();
-
-      document.getElementById('aResult').innerHTML = `<span class="text-green-400">✓ Enviado a ${data.sent}/${data.total}</span>`;
-
-      if (data.sent > 0) document.getElementById('aText').value = '';
-    });
-
-    loadAreas();
-    loadEmployees();
-    setInterval(loadEmployees, 10000);
+    // Auto-refresh cada 10 segundos
+    setInterval(() => {
+      if (selectedEmployee) {
+        loadMessages();
+      }
+    }, 10000);
   </script>
 </body>
 </html>

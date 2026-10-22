@@ -13,6 +13,8 @@ const Store = require('./store');
 const ResponseQueue = require('./queue');
 const Handler = require('./handler');
 const { startAlerts } = require('./alerts');
+const { startPanel } = require('./panel');
+const { processPendingNotifications } = require('./tickets');
 
 const baileysLogger = pino({
   level: process.env.BAILEYS_LOG_LEVEL || 'silent'
@@ -20,23 +22,25 @@ const baileysLogger = pino({
 
 let sock = null;
 let alertsStarted = false;
+let panelStarted = false;
+let notificationsStarted = false;
 let reconnecting = false;
 let botPhoneNumber = null;
 
 async function sendText(jid, text) {
   if (!sock || !sock.user?.id || !jid || !text) return false;
-  
+
   const timestamp = new Date().toISOString();
   const chatId = jid.split('@')[0];
   const preview = text.length > 50 ? text.substring(0, 50) + '...' : text;
-  
+
   console.log(`\n📤 [${timestamp}]`);
   console.log(`   ENVIADO → ${chatId}`);
   console.log(`   Texto: "${preview}"`);
-  
+
   try {
     await sock.sendMessage(jid, { text });
-    console.log(`   ✅ Mensaje enviado correctamente`);
+    console.log('   ✅ Mensaje enviado correctamente');
     return true;
   } catch (error) {
     console.log(`   ❌ Error: ${error.message}`);
@@ -47,25 +51,11 @@ async function sendText(jid, text) {
 
 async function sendPresence(jid, type) {
   if (!sock || !sock.user?.id || !jid) return false;
-  
-  const timestamp = new Date().toISOString();
-  const chatId = jid.split('@')[0];
-  const action = type === 'composing' ? '📝 TYPING' : '⏸️  PAUSED';
-  
-  console.log(`\n${action} [${timestamp}]`);
-  console.log(`   Chat: ${chatId}`);
-  
+
   try {
-    if (type === 'composing') {
-      await sock.sendPresenceUpdate('composing', jid);
-      console.log(`   ✅ Typing activado`);
-    } else {
-      await sock.sendPresenceUpdate('paused', jid);
-      console.log(`   ✅ Typing desactivado`);
-    }
+    await sock.sendPresenceUpdate(type === 'composing' ? 'composing' : 'paused', jid);
     return true;
-  } catch (error) {
-    console.log(`   ❌ Error: ${error.message}`);
+  } catch {
     return false;
   }
 }
@@ -95,6 +85,34 @@ async function start() {
     startAlerts({ sendText, store, logger });
   }
 
+  // ===== PANEL WEB =====
+  if (!panelStarted) {
+    panelStarted = true;
+
+    try {
+      startPanel({ store, sendText, logger });
+    } catch (error) {
+      console.error('❌ Error fatal al iniciar el panel:', error);
+    }
+  }
+  // =====================
+
+  // ===== PROCESADOR DE NOTIFICACIONES =====
+  if (!notificationsStarted) {
+    notificationsStarted = true;
+
+    setInterval(async () => {
+      try {
+        await processPendingNotifications({ store, sendText, logger });
+      } catch (error) {
+        logger.error({ err: error.message }, 'Error procesando notificaciones');
+      }
+    }, 60000); // Cada minuto
+
+    console.log('⏰ Procesador de notificaciones iniciado (cada 60s)');
+  }
+  // ========================================
+
   async function connect() {
     const { state, saveCreds } = await useMultiFileAuthState(config.authFolder);
 
@@ -122,8 +140,10 @@ async function start() {
 
       if (connection === 'close') {
         const code = lastDisconnect?.error?.output?.statusCode;
+
         if (code !== DisconnectReason.loggedOut && !reconnecting) {
           reconnecting = true;
+
           setTimeout(async () => {
             reconnecting = false;
             await connect();
