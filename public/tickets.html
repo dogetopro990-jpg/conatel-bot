@@ -85,6 +85,8 @@
       border-radius: 12px;
       font-size: 14px;
       line-height: 1.4;
+      word-wrap: break-word;
+      white-space: pre-wrap;
     }
     
     .chat-message.user .chat-bubble {
@@ -144,6 +146,18 @@
       font-size: 14px;
       font-weight: 500;
     }
+    
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+    
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
   </style>
 </head>
 <body>
@@ -156,13 +170,13 @@
       </div>
     </div>
     <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="tickets.html" class="active">Tickets</a>
-      <a href="resolved.html">Resueltos</a>
-      <a href="employees.html">Empleados</a>
-      <a href="messages.html">Mensajes</a>
-      <a href="settings.html" id="settingsLink">Config</a>
-      <a href="users.html" id="usersLink">Usuarios</a>
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html" class="active">Tickets</a>
+      <a href="/resolved.html">Resueltos</a>
+      <a href="/employees.html">Empleados</a>
+      <a href="/messages.html">Mensajes</a>
+      <a href="/settings.html" id="settingsLink">Config</a>
+      <a href="/users.html" id="usersLink">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
@@ -175,7 +189,7 @@
   </nav>
 
   <main>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
       <h2 style="font-size: 28px; font-weight: 600;">Tickets Activos <span id="ticketCount" class="badge badge-info">0</span></h2>
       <button class="btn btn-secondary" onclick="loadData()">🔄 Actualizar</button>
     </div>
@@ -202,23 +216,25 @@
     </div>
 
     <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Título</th>
-            <th>Solicitante</th>
-            <th>Área</th>
-            <th>Prioridad</th>
-            <th>Estado</th>
-            <th>Asignado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="ticketsTableBody">
-          <tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
-        </tbody>
-      </table>
+      <div style="overflow-x: auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Título</th>
+              <th>Solicitante</th>
+              <th>Área</th>
+              <th>Prioridad</th>
+              <th>Estado</th>
+              <th>Asignado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody">
+            <tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </main>
 
@@ -248,6 +264,10 @@
             <div class="info-value" id="modalPriority"></div>
           </div>
           <div class="info-item">
+            <div class="info-label">Ubicación</div>
+            <div class="info-value" id="modalLocation"></div>
+          </div>
+          <div class="info-item">
             <div class="info-label">Asignado a</div>
             <div class="info-value" id="modalAssignee"></div>
           </div>
@@ -269,13 +289,22 @@
 
         <div id="adminControls" style="margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border);">
           <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 16px;">Gestionar Ticket</h4>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div>
               <label style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block;">Estado</label>
               <select id="newStatus">
                 <option value="abierta">Abierta</option>
                 <option value="en_progreso">En progreso</option>
                 <option value="cerrada">Cerrada</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px; display: block;">Prioridad</label>
+              <select id="newPriority">
+                <option value="baja">Baja</option>
+                <option value="media">Media</option>
+                <option value="alta">Alta</option>
+                <option value="critica">Crítica</option>
               </select>
             </div>
             <div>
@@ -367,10 +396,8 @@
         allEmployees = await empRes.json();
         allAreas = await areasRes.json();
 
-        // Filtrar solo tickets activos
         allTickets = allTicketsRaw.filter(t => t.status !== 'cerrada');
 
-        // Actualizar filtro de áreas
         const areaFilter = document.getElementById('filterArea');
         const currentValue = areaFilter.value;
         areaFilter.innerHTML = '<option value="">Todas las áreas</option>' + 
@@ -380,6 +407,8 @@
         renderTickets();
       } catch (error) {
         console.error('Error:', error);
+        document.getElementById('ticketsTableBody').innerHTML = 
+          `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--error);">Error al cargar datos</td></tr>`;
       }
     }
 
@@ -404,17 +433,26 @@
       document.getElementById('ticketCount').textContent = filtered.length;
 
       const tbody = document.getElementById('ticketsTableBody');
+      
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay tickets activos</td></tr>`;
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="8">
+              <div class="empty-state">
+                <div class="empty-state-icon">📭</div>
+                <p>No hay tickets activos</p>
+              </div>
+            </td>
+          </tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(t => `
         <tr>
-          <td style="font-family: monospace; color: var(--accent);">#T-${t.id}</td>
+          <td style="font-family: monospace; color: var(--accent); font-weight: 600;">#T-${t.id}</td>
           <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.title}">${t.title}</td>
           <td>
-            <div>${t.requesterName || 'Desconocido'}</div>
+            <div style="font-weight: 500;">${t.requesterName || 'Desconocido'}</div>
             <div style="font-size: 12px; color: var(--text-muted);">${t.requesterPhone}</div>
           </td>
           <td>${t.area}</td>
@@ -441,21 +479,47 @@
       document.getElementById('modalDescription').textContent = t.description || 'Sin descripción';
       document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
       document.getElementById('modalArea').textContent = t.area;
+      document.getElementById('modalLocation').textContent = t.location || 'No especificada';
       document.getElementById('modalPriority').innerHTML = `<span class="badge ${priorityColors[t.priorityLevel] || 'badge-info'}">${t.priorityLevel} (${t.score})</span>`;
       document.getElementById('modalAssignee').textContent = t.assignedTo ? getEmployeeName(t.assignedTo) : 'Sin asignar';
 
-      // Cargar mensajes del chat
       renderChat(t.messages || []);
 
-      // Controles de admin
       if (currentUser && currentUser.role === 'admin') {
         document.getElementById('newStatus').value = t.status;
+        document.getElementById('newPriority').value = t.priorityLevel || 'media';
+        document.getElementById('observaciones').value = '';
         
         const assigneeSelect = document.getElementById('newAssignee');
         assigneeSelect.innerHTML = '<option value="">Sin asignar</option>';
-        allEmployees.filter(e => e.area === t.area).forEach(emp => {
-          const selected = t.assignedTo === emp.phone ? 'selected' : '';
-          assigneeSelect.innerHTML += `<option value="${emp.phone}" ${selected}>${emp.name} (${emp.role})</option>`;
+        
+        const sortedEmployees = [...allEmployees].sort((a, b) => {
+          if (a.area !== b.area) return a.area.localeCompare(b.area);
+          return a.name.localeCompare(b.name);
+        });
+        
+        let currentArea = '';
+        sortedEmployees.forEach(emp => {
+          if (emp.area !== currentArea) {
+            currentArea = emp.area;
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = `📁 ${emp.area}`;
+            assigneeSelect.appendChild(optgroup);
+          }
+          
+          const option = document.createElement('option');
+          option.value = emp.phone;
+          option.textContent = `${emp.name} (${emp.role})`;
+          if (t.assignedTo === emp.phone) {
+            option.selected = true;
+          }
+          
+          const lastOptgroup = assigneeSelect.querySelector('optgroup:last-child');
+          if (lastOptgroup) {
+            lastOptgroup.appendChild(option);
+          } else {
+            assigneeSelect.appendChild(option);
+          }
         });
 
         const statusSelect = document.getElementById('newStatus');
@@ -485,11 +549,12 @@
         const isUser = m.from !== 'bot' && m.from !== 'panel';
         const type = isUser ? 'user' : 'bot';
         const name = isUser ? m.name : 'Sistema';
+        const kindLabel = m.kind === 'observacion_cierre' ? ' 📝' : '';
         
         return `
           <div class="chat-message ${type}">
             <div class="chat-bubble">${m.text}</div>
-            <div class="chat-meta">${name} • ${new Date(m.at).toLocaleString()}</div>
+            <div class="chat-meta">${name}${kindLabel} • ${new Date(m.at).toLocaleString()}</div>
           </div>
         `;
       }).join('');
@@ -508,22 +573,20 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             text,
-            fromName: currentUser.name
+            fromName: currentUser ? currentUser.name : 'Usuario'
           })
         });
 
         if (res.ok) {
           input.value = '';
-          // Recargar ticket para ver el nuevo mensaje
-          const ticket = allTickets.find(t => t.id === currentTicketId);
-          if (ticket) {
-            const ticketRes = await fetch(`/api/tickets/${currentTicketId}`);
-            const updatedTicket = await ticketRes.json();
-            renderChat(updatedTicket.messages || []);
-          }
+          const ticketRes = await fetch(`/api/tickets/${currentTicketId}`);
+          const updatedTicket = await ticketRes.json();
+          renderChat(updatedTicket.messages || []);
+        } else {
+          alert('Error al enviar mensaje');
         }
       } catch (error) {
-        alert('Error al enviar mensaje');
+        alert('Error de red al enviar mensaje');
       }
     }
 
@@ -531,10 +594,11 @@
       if (!currentTicketId || !currentUser || currentUser.role !== 'admin') return;
       
       const status = document.getElementById('newStatus').value;
+      const priorityLevel = document.getElementById('newPriority').value;
       const assignedTo = document.getElementById('newAssignee').value || null;
       const observaciones = document.getElementById('observaciones').value.trim();
 
-      const body = { status, assignedTo };
+      const body = { status, priorityLevel, assignedTo };
       if (status === 'cerrada' && observaciones) {
         body.observaciones = observaciones;
       }
@@ -559,7 +623,7 @@
 
     async function deleteTicket() {
       if (!currentTicketId || !currentUser || currentUser.role !== 'admin') return;
-      if (!confirm(`¿Eliminar ticket #T-${currentTicketId}?`)) return;
+      if (!confirm(`¿Eliminar ticket #T-${currentTicketId}? Los demás tickets serán renumerados.`)) return;
 
       try {
         const res = await fetch(`/api/tickets/${currentTicketId}`, { method: 'DELETE' });

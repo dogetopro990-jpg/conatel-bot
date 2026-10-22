@@ -20,7 +20,18 @@ function setCache(key, value) {
   cache.set(key, { value, timestamp: Date.now() });
 }
 
-// ============ RESPUESTAS VARIADAS ============
+let customMessages = null;
+
+function setCustomMessages(messages) {
+  customMessages = messages;
+}
+
+function getMessages(category, fallback) {
+  if (customMessages && customMessages[category] && customMessages[category].length > 0) {
+    return customMessages[category];
+  }
+  return fallback;
+}
 
 const RESPONSES = {
   saludo: [
@@ -97,7 +108,7 @@ const RESPONSES = {
 };
 
 function getRandomResponse(category, replacements = {}) {
-  const responses = RESPONSES[category] || RESPONSES.no_entendido;
+  const responses = getMessages(category, RESPONSES[category]) || RESPONSES.no_entendido;
   let response = responses[Math.floor(Math.random() * responses.length)];
   Object.keys(replacements).forEach(key => {
     response = response.replace(`{${key}}`, replacements[key]);
@@ -105,14 +116,11 @@ function getRandomResponse(category, replacements = {}) {
   return response;
 }
 
-// ============ UTILIDADES ============
-
 function safeArea(value) {
   if (!value) return null;
   const area = normalizeText(value || '');
   if (!area) return null;
   
-  // Buscar coincidencia exacta o parcial con las áreas configuradas
   for (const configuredArea of config.areas) {
     const normalizedConfig = normalizeText(configuredArea);
     if (area === normalizedConfig || area.includes(normalizedConfig) || normalizedConfig.includes(area)) {
@@ -120,7 +128,6 @@ function safeArea(value) {
     }
   }
   
-  // Alias comunes
   if (area.includes('infra')) return config.areas.find(a => a.toLowerCase().includes('comunicacion')) || 'Comunicaciones';
   if (area.includes('desarr') || area.includes('software') || area.includes('sistema')) return 'DISET';
   if (area.includes('soporte') || area.includes('mesa') || area.includes('helpdesk')) return 'DISET';
@@ -151,8 +158,6 @@ function extractJson(text = '') {
   }
   return null;
 }
-
-// ============ GEMINI ============
 
 let lastGeminiCall = 0;
 const GEMINI_MIN_INTERVAL = 1000;
@@ -222,8 +227,6 @@ async function gemini(prompt, { json = true } = {}) {
   }
 }
 
-// ============ UTILIDADES LOCALES ============
-
 function detectUrgencyFromText(text) {
   const t = normalizeText(text);
   if (/(no\s?funciona|caida|sin\s?(servicio|internet|acceso)|emergencia|urgente|bloquea|no\s?puedo\s?trabajar|produccion)/i.test(t)) return 'critica';
@@ -232,26 +235,16 @@ function detectUrgencyFromText(text) {
   return 'media';
 }
 
-// ============ EXTRACCIÓN MEJORADA DE NOMBRES ============
-
 function extractNameLocal(text) {
   const t = text.trim();
   
-  // Patrones más flexibles para extraer nombres
   const patterns = [
-    // "Con [Nombre]" - muy común en español
     /(?:^|\b)(?:con|soy|me\s?llamo|mi\s?nombre\s?es|soy\s+el|soy\s+la)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
-    // Nombre al inicio del mensaje
     /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})/i,
-    // "Hola, soy [Nombre]"
     /hola[,.\s]+(?:soy|me\s?llamo)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
-    // Nombre después de coma o punto
     /[,.\s]+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})/i,
-    // "Soy [Nombre]" en cualquier parte
     /\bsoy\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
-    // "Me llamo [Nombre]"
     /\bme\s+llamo\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
-    // "Mi nombre es [Nombre]"
     /\bmi\s+nombre\s+es\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i
   ];
   
@@ -259,7 +252,6 @@ function extractNameLocal(text) {
     const match = t.match(pattern);
     if (match && match[1]) {
       const name = match[1].trim();
-      // Filtrar palabras comunes que no son nombres
       const common = /^(hola|buenos|buenas|gracias|ok|si|no|que|como|cuando|por|para|con|sin|de|del|la|el|los|las|un|una|es|esta|este|estos|estas|yo|tu|el|ella|nosotros|ellos|usted|ustedes)/i;
       if (name.length > 2 && !common.test(name)) {
         console.log(`   ✅ Nombre detectado: "${name}"`);
@@ -284,17 +276,88 @@ function extractCargoLocal(text) {
   return null;
 }
 
-// ============ EXTRACCIÓN INTELIGENTE DE DATOS ============
+// ============ DETECTAR RESOLUCIÓN ============
+
+function detectResolution(text) {
+  const t = normalizeText(text);
+  
+  const resolutionPatterns = [
+    /\b(ya\s+(arreglamos|solucionamos|resolvimos|reparamos|hicimos|terminamos|quedó\s+listo|está\s+listo))\b/i,
+    /\b(esto\s+ya\s+(se\s+)?(arregló|solucionó|resolvió|hizo|terminó))\b/i,
+    /\b(problema\s+(resuelto|solucionado|arreglado))\b/i,
+    /\b(ya\s+no\s+(hay|existe)\s+(el\s+)?problema)\b/i,
+    /\b(ya\s+funciona|ya\s+está\s+funcionando)\b/i,
+    /\b(listo|terminado|completado|finalizado)\b/i,
+    /\b(se\s+arregló|se\s+solucionó|se\s+resolvió)\b/i,
+    /\b(quedó\s+(arreglado|solucionado|resuelto|listo))\b/i
+  ];
+  
+  for (const pattern of resolutionPatterns) {
+    if (pattern.test(t)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// ============ DETECTAR ESTADO DE EMPLEADO ============
+
+function detectEmployeeState(text) {
+  const t = normalizeText(text);
+  
+  if (/\b(estoy\s+(trabajando|encargando|viendo|revisando|atendiendo|en\s+eso))\b/i.test(t) ||
+      /\b(ya\s+estoy\s+(en\s+eso|encargado|revisando))\b/i.test(t) ||
+      /\b(lo\s+estoy\s+(viendo|revisando|atendiendo))\b/i.test(t)) {
+    return 'trabajando';
+  }
+  
+  if (/\b(estoy\s+ocupado|tengo\s+varios\s+casos|no\s+puedo\s+ahora|estoy\s+lleno)\b/i.test(t)) {
+    return 'ocupado';
+  }
+  
+  if (/\b(ya\s+terminé|ya\s+estoy\s+libre|disponible|listo\s+para\s+otro)\b/i.test(t)) {
+    return 'disponible';
+  }
+  
+  return null;
+}
+
+// ============ DETECTAR UBICACIÓN ============
+
+function detectLocation(text) {
+  const t = text.trim();
+  
+  const patterns = [
+    /(?:en|está en|es en|ubicado en|se encuentra en)\s+(.+?)(?:\.|,|$)/i,
+    /(?:oficina|sala|piso|área|departamento|lugar)\s+(.+?)(?:\.|,|$)/i,
+    /(?:edificio|piso|planta)\s+(\d+|[a-z]+)(?:\.|,|$)/i
+  ];
+  
+  for (const pattern of patterns) {
+    const match = t.match(pattern);
+    if (match && match[1]) {
+      const location = match[1].trim();
+      if (location.length > 2 && location.length < 100) {
+        return location;
+      }
+    }
+  }
+  
+  if (t.length < 50 && !/^(hola|gracias|ok|si|no)/i.test(t)) {
+    return t;
+  }
+  
+  return null;
+}
 
 async function extractRegistrationData(text) {
   console.log(`   🔍 Extrayendo datos...`);
   
-  // Primero intentar con métodos locales
   let nombre = extractNameLocal(text);
   let area = safeArea(text);
   let cargo = extractCargoLocal(text);
 
-  // Si falta algo importante, intentar con Gemini
   if (!nombre || !area) {
     const areasList = config.areas.join(', ');
     const prompt = `Extrae del mensaje: {"nombre":"string","area":"string|null","cargo":"string"}. 
@@ -314,38 +377,65 @@ Mensaje: "${text}"`;
   return { nombre, area, cargo };
 }
 
-// ============ DETECTAR INTENCIÓN ============
-
 function fallbackDetectIntent(text, context = {}) {
   const t = normalizeText(text);
   const ticketId = parseTicketTag(text);
 
-  // PRIORIDAD 1: Saludos
+  // PRIORIDAD 0: Detectar resolución
+  if (context.activeTicket && context.activeTicket.assignedTo === context.employeePhone) {
+    if (detectResolution(text)) {
+      console.log(`   ✅ Resolución detectada para ticket #T-${context.activeTicket.id}`);
+      return { 
+        intencion: 'resolver_ticket', 
+        ticket_id: context.activeTicket.id,
+        descripcion: text,
+        confianza: 90 
+      };
+    }
+    
+    const empState = detectEmployeeState(text);
+    if (empState) {
+      console.log(`   👤 Estado de empleado detectado: ${empState}`);
+      return { 
+        intencion: 'cambiar_estado_empleado',
+        estado: empState,
+        ticket_id: context.activeTicket.id,
+        confianza: 85
+      };
+    }
+  }
+
   if (/^(hola|buenos?\s?(dias|tardes|noches)|hey|hi|que\s?tal|saludos|buenas)\b/i.test(t)) {
     return { intencion: 'saludo', confianza: 95 };
   }
 
-  // PRIORIDAD 2: Agradecimientos
   if (/\b(gracias|muchas?\s?gracias|te\s?agradezco|thank)\b/i.test(t)) {
     return { intencion: 'agradecimiento', confianza: 90 };
   }
 
-  // PRIORIDAD 3: Despedidas
   if (/\b(adios|chao|hasta\s?(luego|pronto)|nos\s?vemos|bye)\b/i.test(t)) {
     return { intencion: 'despedida', confianza: 90 };
   }
 
-  // PRIORIDAD 4: Tag de ticket explícito (#T-123)
   if (ticketId) {
     return { intencion: 'actualizar_ticket', ticket_id: ticketId, urgencia: detectUrgencyFromText(text), descripcion: text, confianza: 85 };
   }
 
-  // PRIORIDAD 5: Referencias a "ticket anterior" o "el ticket" con ticket activo
+  // PRIORIDAD: Aclaración automática si el empleado asignado habla
+  if (context.activeTicket && context.activeTicket.assignedTo === context.employeePhone) {
+    console.log(`   📝 Aclaración automática para ticket #T-${context.activeTicket.id}`);
+    return { 
+      intencion: 'aclaracion_automatica', 
+      ticket_id: context.activeTicket.id,
+      descripcion: text,
+      confianza: 90 
+    };
+  }
+
   if (context.activeTicket) {
     const ticketRef = /(ticket\s+(anterior|activo|actual|este)|el\s+ticket|mi\s+ticket|actualizar|agregar|añadir|informar|comentar)/i;
     
     if (ticketRef.test(t)) {
-      console.log(`   🎯 Referencia a ticket activo detectada: #T-${context.activeTicket.id}`);
       return { 
         intencion: 'actualizar_ticket', 
         ticket_id: context.activeTicket.id, 
@@ -354,29 +444,14 @@ function fallbackDetectIntent(text, context = {}) {
         confianza: 90 
       };
     }
-    
-    // Si hay ticket activo y el mensaje es corto, probablemente es una aclaración
-    if (t.length < 100) {
-      return { 
-        intencion: 'aclaracion', 
-        ticket_id: context.activeTicket.id, 
-        area: null, 
-        urgencia: null, 
-        descripcion: text, 
-        confianza: 75 
-      };
-    }
   }
 
-  // Detectar área
   let area = safeArea(text);
   const urgencia = detectUrgencyFromText(text);
 
-  // Detectar problemas
   const problemKeywords = /(no\s?(puedo|funciona|hay|entra|sirve|anda|imprime|conecta|carga)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo|tinta|toner)|computadora|pc|equipo|molestia|molesto|lento|demora|no\s?me\s?deja|no\s?puedo\s?acceder|no\s?carga|no\s?conecta|impresora|tinta|toner|falta|se\s?quedo|se\s?queda|papel|atascada|no\s?imprime|no\s?escanea|no\s?copia)/i;
   
   if (problemKeywords.test(t) && t.length >= 5) {
-    console.log(`   🎯 Problema detectado: ${t.substring(0, 50)}...`);
     return { 
       intencion: 'crear_ticket', 
       area, 
@@ -388,10 +463,8 @@ function fallbackDetectIntent(text, context = {}) {
     };
   }
 
-  // Solicitudes indirectas
   const indirectProblem = /(le\s?hace\s?falta|le\s?falta|necesita|requiere|se\s?acabo|se\s?termino|sin\s+\w+|no\s?tengo)/i;
   if (indirectProblem.test(t) && t.length >= 5) {
-    console.log(`   🎯 Solicitud indirecta detectada: ${t.substring(0, 50)}...`);
     return { 
       intencion: 'crear_ticket', 
       area, 
@@ -410,8 +483,8 @@ function fallbackDetectIntent(text, context = {}) {
   return { intencion: 'otro', descripcion: text, confianza: 20 };
 }
 
-async function detectIntent(text, { employee, activeTicket, history = [] }) {
-  const fallback = fallbackDetectIntent(text, { activeTicket });
+async function detectIntent(text, { employee, activeTicket, history = [], employeePhone = null }) {
+  const fallback = fallbackDetectIntent(text, { activeTicket, employeePhone, employee });
 
   if (fallback.confianza >= 75) {
     console.log(`   ✅ Fallback (${fallback.confianza}%)`);
@@ -447,14 +520,24 @@ Devuelve JSON:
   return merged;
 }
 
-// ============ GENERAR RESPUESTA ============
-
 async function generateResponse({ intent, employee, activeTicket, userMessage, context = {}, history = [] }) {
   if (['saludo', 'agradecimiento', 'despedida'].includes(intent.intencion)) {
     return getRandomResponse(intent.intencion);
   }
 
   if (intent.intencion === 'crear_ticket' && intent.es_problema) {
+    const location = detectLocation(userMessage);
+    
+    if (!location) {
+      const responses = [
+        'Entiendo, lo voy a revisar. ¿En qué lugar es el problema?',
+        'Ok, lo anoto. ¿Dónde exactamente ocurre el problema?',
+        'Perfecto, lo estamos viendo. ¿Me dices en qué área o lugar es?',
+        'Entendido. ¿Podrías decirme en qué lugar específico es el problema?'
+      ];
+      return responses[Math.floor(Math.random() * responses.length)];
+    }
+    
     return getRandomResponse('problema_detectado');
   }
 
@@ -497,5 +580,9 @@ module.exports = {
   extractRegistrationData,
   safeArea,
   detectUrgencyFromText,
-  getRandomResponse
+  getRandomResponse,
+  setCustomMessages,
+  detectResolution,
+  detectEmployeeState,
+  detectLocation
 };

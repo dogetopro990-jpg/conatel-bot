@@ -6,7 +6,7 @@ const Auth = require('./auth');
 const config = require('./config');
 const { refreshPriority } = require('./priority');
 const { nowISO, toPhone } = require('./utils');
-const { notifyRequesterOnClose } = require('./tickets');
+const { notifyRequesterOnClose, renumberTickets } = require('./tickets');
 
 const PUBLIC_DIR = path.resolve(__dirname, '..', 'public');
 
@@ -141,6 +141,17 @@ function startPanel({ store, sendText, logger, port, host }) {
         res.setHeader('Set-Cookie', 'sessionId=; Path=/; HttpOnly; Max-Age=0');
       }
       return json(res, 200, { ok: true });
+    }
+
+    if (pathname === '/api/auth/register' && method === 'POST') {
+      const body = await readBody(req);
+      
+      try {
+        const result = await auth.registerPublic(body.username, body.password, body.name);
+        return json(res, 200, result);
+      } catch (error) {
+        return json(res, 400, { error: error.message });
+      }
     }
 
     if (pathname === '/api/auth/me' && method === 'GET') {
@@ -291,7 +302,7 @@ function startPanel({ store, sendText, logger, port, host }) {
         return json(res, 200, enrichTicket(ticket, store));
       }
 
-      // PATCH (solo admin puede modificar)
+      // PATCH
       if (method === 'PATCH' && parts.length === 3) {
         if (session.role !== 'admin') {
           return json(res, 403, { error: 'Sin permisos' });
@@ -308,6 +319,11 @@ function startPanel({ store, sendText, logger, port, host }) {
         if (body.urgency && ['baja', 'media', 'alta', 'critica'].includes(body.urgency)) {
           patch.urgency = body.urgency;
         }
+        // Permitir modificar prioridad manualmente
+        if (body.priorityLevel && ['baja', 'media', 'alta', 'critica'].includes(body.priorityLevel)) {
+          patch.priorityLevel = body.priorityLevel;
+          ticket.manualPriority = true;
+        }
         if (body.assignedTo !== undefined) {
           patch.assignedTo = body.assignedTo ? toPhone(body.assignedTo) : null;
         }
@@ -318,14 +334,18 @@ function startPanel({ store, sendText, logger, port, host }) {
         if (body.observaciones && patch.status === 'cerrada') {
           ticket.messages.push({
             from: 'panel',
-            name: 'Panel Admin',
+            name: session.name,
             text: `📝 Observaciones al cerrar:\n${body.observaciones}`,
             kind: 'observacion_cierre',
             at: nowISO()
           });
         }
         
-        refreshPriority(ticket);
+        // Solo recalcular prioridad si no fue modificada manualmente
+        if (!ticket.manualPriority) {
+          refreshPriority(ticket);
+        }
+        
         await store.save();
 
         if (patch.status === 'cerrada' && previousStatus !== 'cerrada') {
@@ -333,7 +353,8 @@ function startPanel({ store, sendText, logger, port, host }) {
             ticket, 
             sendText, 
             logger,
-            observaciones: body.observaciones || null
+            observaciones: body.observaciones || null,
+            store
           }).catch(err => {
             console.error(`   ❌ Error notificando cierre: ${err.message}`);
           });
@@ -342,7 +363,7 @@ function startPanel({ store, sendText, logger, port, host }) {
         return json(res, 200, enrichTicket(ticket, store));
       }
 
-      // DELETE (solo admin)
+      // DELETE
       if (method === 'DELETE' && parts.length === 3) {
         if (session.role !== 'admin') {
           return json(res, 403, { error: 'Sin permisos' });
@@ -350,12 +371,16 @@ function startPanel({ store, sendText, logger, port, host }) {
 
         console.log(`   🗑️  Eliminando ticket #T-${id}`);
         delete store.data.tickets[idStr];
+        
+        // Renumerar tickets
+        renumberTickets(store);
+        
         await store.save();
-        console.log(`   ✅ Ticket #T-${id} eliminado`);
+        console.log(`   ✅ Ticket #T-${id} eliminado y tickets renumerados`);
         return json(res, 200, { ok: true, message: `Ticket #T-${id} eliminado` });
       }
 
-      // POST messages (cualquier usuario autenticado puede agregar mensajes)
+      // POST messages
       if (method === 'POST' && parts[3] === 'messages') {
         const body = await readBody(req);
         if (!body.text) return json(res, 400, { error: 'Texto requerido' });
@@ -500,7 +525,7 @@ function startPanel({ store, sendText, logger, port, host }) {
       return json(res, 200, { ok: true });
     }
 
-    // CONFIG MESSAGES (solo admin)
+    // CONFIG MESSAGES
     if (pathname === '/api/config/messages' && method === 'GET') {
       const settings = store.getSettings();
       return json(res, 200, settings.customMessages || {});
@@ -523,7 +548,7 @@ function startPanel({ store, sendText, logger, port, host }) {
       return json(res, 200, { ok: true });
     }
 
-    // CONFIG GENERAL (solo admin)
+    // CONFIG GENERAL
     if (pathname === '/api/config/general' && method === 'GET') {
       const settings = store.getSettings();
       return json(res, 200, {
@@ -548,6 +573,34 @@ function startPanel({ store, sendText, logger, port, host }) {
       if (typeof body.maxDelayMs === 'number') settings.maxDelayMs = body.maxDelayMs;
       if (typeof body.priorityThreshold === 'number') settings.priorityThreshold = body.priorityThreshold;
       if (typeof body.autoAlerts === 'boolean') settings.autoAlerts = body.autoAlerts;
+      
+      store.data.settings = settings;
+      await store.save();
+      
+      return json(res, 200, { ok: true });
+    }
+
+    // CONFIG ALERTS
+    if (pathname === '/api/config/alerts' && method === 'GET') {
+      const settings = store.getSettings();
+      return json(res, 200, {
+        autoAlerts: settings.autoAlerts ?? true,
+        notifyRequester: settings.notifyRequester ?? true,
+        notifyAssignee: settings.notifyAssignee ?? true
+      });
+    }
+
+    if (pathname === '/api/config/alerts' && method === 'PUT') {
+      if (session.role !== 'admin') {
+        return json(res, 403, { error: 'Sin permisos' });
+      }
+
+      const body = await readBody(req);
+      const settings = store.getSettings();
+      
+      if (typeof body.autoAlerts === 'boolean') settings.autoAlerts = body.autoAlerts;
+      if (typeof body.notifyRequester === 'boolean') settings.notifyRequester = body.notifyRequester;
+      if (typeof body.notifyAssignee === 'boolean') settings.notifyAssignee = body.notifyAssignee;
       
       store.data.settings = settings;
       await store.save();

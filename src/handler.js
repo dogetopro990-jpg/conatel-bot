@@ -1,7 +1,7 @@
 const config = require('./config');
 const { toPhone, parseTicketTag, ticketTag, truncate, nowISO } = require('./utils');
-const { detectIntent, generateResponse, extractRegistrationData, getRandomResponse } = require('./ai');
-const { createTicket, appendUpdate, autoAssignAndNotify } = require('./tickets');
+const { detectIntent, generateResponse, extractRegistrationData, getRandomResponse, detectLocation } = require('./ai');
+const { createTicket, appendUpdate, autoAssignAndNotify, setEmployeeState, notifyRequesterOnClose } = require('./tickets');
 const { refreshPriority } = require('./priority');
 
 class Handler {
@@ -212,6 +212,8 @@ class Handler {
 
     const intent = await detectIntent(args, { employee, activeTicket: null });
 
+    const location = detectLocation(args);
+
     const ticket = createTicket({
       store: this.store,
       chatId,
@@ -221,7 +223,8 @@ class Handler {
         area: intent.area || 'soporte',
         urgencia: intent.urgencia || 'media',
         titulo: intent.titulo || args.slice(0, 120),
-        descripcion: intent.descripcion || args
+        descripcion: intent.descripcion || args,
+        location
       },
       originalText: args
     });
@@ -406,7 +409,8 @@ class Handler {
     const intent = await detectIntent(text, {
       employee,
       activeTicket,
-      history
+      history,
+      employeePhone: senderPhone
     });
 
     console.log(`   Intención: ${intent.intencion}`);
@@ -447,7 +451,7 @@ class Handler {
     return naturalResponse;
   }
 
-    async handleRegistrationFlow({ chatId, senderPhone, senderName, text, session, history }) {
+  async handleRegistrationFlow({ chatId, senderPhone, senderName, text, session, history }) {
     const sessionKey = `reg:${senderPhone}`;
     const data = session.data || {};
 
@@ -482,28 +486,6 @@ class Handler {
           console.log(`   ✅ Empleado registrado: ${data.nombre}, ${data.area}, ${data.cargo}, Tel: ${senderPhone}`);
 
           const firstName = data.nombre.split(' ')[0];
-          
-          // Si hay pendingRequest, procesarlo
-          if (session.pendingRequest) {
-            const pendingText = session.pendingRequest;
-            const intent = await detectIntent(pendingText, { 
-              employee: this.store.getEmployee(senderPhone), 
-              activeTicket: null 
-            });
-            
-            const { ticket, response } = await this.executeIntent({
-              intent,
-              chatId,
-              senderPhone,
-              senderName,
-              text: pendingText,
-              employee: this.store.getEmployee(senderPhone),
-              activeTicket: null
-            });
-            
-            if (response) return response;
-          }
-          
           const transicion = getRandomResponse('transicion_a_solicitud', { nombre: firstName });
           return transicion;
         }
@@ -569,50 +551,24 @@ class Handler {
     }
   }
 
-      extractArea(text) {
+  extractArea(text) {
     const t = text.toLowerCase().trim();
-    // Normalizar: elimina tildes y caracteres especiales para facilitar la coincidencia
     const normalized = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
-    // Lista de tus áreas exactas
-    const areas = [
-      'DIGER', 'DISET', 'DIREM', 'LEGAL', 'SECRETARIA', 
-      'Servicios Generales', 'Proteccion al usuario', 'Compras', 
-      'Bienes', 'Cartera y cobranza', 'Contabilidad', 
-      'Gerencia General', 'Comision', 'DIPLADE', 'Comunicaciones'
-    ];
-
-    for (const area of areas) {
+    
+    for (const area of config.areas) {
       const areaLower = area.toLowerCase();
       const areaNormalized = areaLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       
-      // 1. Coincidencia exacta o normalizada
-      if (t === areaLower || normalized === areaNormalized) return area;
+      if (t === areaLower || normalized === areaNormalized) {
+        return area;
+      }
       
-      // 2. Coincidencia parcial (el texto contiene el área o viceversa)
       if (t.includes(areaLower) || areaLower.includes(t) || 
           normalized.includes(areaNormalized) || areaNormalized.includes(normalized)) {
         return area;
       }
     }
     
-    // 3. Fallbacks por palabras clave específicas (por si el usuario escribe algo abreviado)
-    if (t.includes('servicio') || t.includes('general') || t.includes('servvicio')) return 'Servicios Generales';
-    if (t.includes('proteccion') || t.includes('usuario')) return 'Proteccion al usuario';
-    if (t.includes('cartera') || t.includes('cobranza')) return 'Cartera y cobranza';
-    if (t.includes('contab')) return 'Contabilidad';
-    if (t.includes('gerencia')) return 'Gerencia General';
-    if (t.includes('compra')) return 'Compras';
-    if (t.includes('bien')) return 'Bienes';
-    if (t.includes('comision')) return 'Comision';
-    if (t.includes('diplade')) return 'DIPLADE';
-    if (t.includes('comunicacion')) return 'Comunicaciones';
-    if (t.includes('diger')) return 'DIGER';
-    if (t.includes('diset')) return 'DISET';
-    if (t.includes('direm')) return 'DIREM';
-    if (t.includes('legal') || t.includes('juridic')) return 'LEGAL';
-    if (t.includes('secretaria')) return 'SECRETARIA';
-
     console.log(`   ⚠️  Área no detectada en: "${text}"`);
     return null;
   }
@@ -646,6 +602,118 @@ class Handler {
         break;
       }
 
+      case 'resolver_ticket': {
+        const targetId = intent.ticket_id;
+        ticket = this.store.getTicket(targetId);
+        
+        if (!ticket) {
+          response = 'No encontré el ticket.';
+          break;
+        }
+
+        if (ticket.assignedTo !== senderPhone) {
+          response = 'Solo el empleado asignado puede resolver este ticket.';
+          break;
+        }
+
+        appendUpdate({
+          store: this.store,
+          ticket,
+          fromPhone: senderPhone,
+          fromName: senderName,
+          text: `✅ Ticket resuelto: ${text}`,
+          changes: { 
+            status: 'cerrada', 
+            kind: 'resolucion' 
+          }
+        });
+
+        setEmployeeState(senderPhone, 'disponible');
+
+        await notifyRequesterOnClose({ 
+          ticket, 
+          sendText: this.sendText, 
+          logger: this.logger,
+          store: this.store
+        });
+
+        await this.store.save();
+        console.log(`   ✅ Ticket #T-${ticket.id} resuelto por ${senderName}`);
+
+        const responses = [
+          'Perfecto, marco el ticket como resuelto. ¡Buen trabajo!',
+          'Listo, cerré el ticket. Gracias por avisar.',
+          'Ok, ticket resuelto. Si necesitas algo más, avísame.',
+          'Entendido, el ticket queda cerrado. ¡Gracias!'
+        ];
+        response = responses[Math.floor(Math.random() * responses.length)];
+        break;
+      }
+
+      case 'cambiar_estado_empleado': {
+        setEmployeeState(senderPhone, intent.estado, intent.ticket_id);
+
+        const responses = {
+          'trabajando': [
+            'Ok, quedo atento. Avísame si necesitas ayuda.',
+            'Perfecto, tómate tu tiempo. Aquí estoy.',
+            'Entendido, cuéntame cuando termines.'
+          ],
+          'ocupado': [
+            'Ok, no te asigno más por ahora. Avísame cuando estés libre.',
+            'Entendido, te dejo trabajar. Avísame cuando puedas.',
+            'Perfecto, aquí estoy cuando necesites.'
+          ],
+          'disponible': [
+            'Ok, te asigno tickets cuando haya.',
+            'Perfecto, estás disponible de nuevo.',
+            'Listo, te tengo en cuenta para nuevos tickets.'
+          ]
+        };
+
+        const categoryResponses = responses[intent.estado] || ['Ok, anotado.'];
+        response = categoryResponses[Math.floor(Math.random() * categoryResponses.length)];
+        break;
+      }
+
+      case 'aclaracion_automatica': {
+        const targetId = intent.ticket_id;
+        ticket = this.store.getTicket(targetId);
+        
+        if (!ticket) {
+          response = 'No encontré el ticket.';
+          break;
+        }
+
+        const location = detectLocation(text);
+        
+        if (location && !ticket.location) {
+          ticket.location = location;
+          console.log(`   📍 Ubicación guardada: ${location}`);
+        }
+
+        appendUpdate({
+          store: this.store,
+          ticket,
+          fromPhone: senderPhone,
+          fromName: senderName,
+          text,
+          changes: { kind: 'aclaracion' }
+        });
+
+        await this.store.save();
+        console.log(`   📝 Aclaración agregada al ticket #T-${ticket.id}`);
+        
+        const responses = [
+          'Anotado, lo agrego al ticket.',
+          'Ok, tomé nota.',
+          'Perfecto, actualicé el ticket.',
+          'Listo, agregado al ticket.'
+        ];
+        response = responses[Math.floor(Math.random() * responses.length)];
+        break;
+      }
+
       case 'crear_ticket': {
         if (!employee) {
           const sessionKey = `reg:${senderPhone}`;
@@ -662,6 +730,7 @@ class Handler {
 
         const area = intent.area || 'soporte';
         const urgencia = intent.urgencia || 'media';
+        const location = detectLocation(text);
 
         ticket = createTicket({
           store: this.store,
@@ -672,7 +741,8 @@ class Handler {
             area,
             urgencia,
             titulo: intent.titulo || text.slice(0, 120),
-            descripcion: intent.descripcion || text
+            descripcion: intent.descripcion || text,
+            location
           },
           originalText: text
         });
@@ -709,7 +779,7 @@ class Handler {
         break;
       }
 
-            case 'actualizar_ticket':
+      case 'actualizar_ticket':
       case 'aclaracion': {
         const targetId = intent.ticket_id || (activeTicket ? activeTicket.id : null);
         
@@ -729,7 +799,6 @@ class Handler {
           break;
         }
 
-        // Si el mensaje es muy corto o genérico, pedir más detalles
         const genericMessages = /^(actualizar|agregar|añadir|informar|comentar|el\s+ticket|mi\s+ticket|ticket\s+(anterior|activo|actual|este))$/i;
         
         if (genericMessages.test(text.trim()) || text.length < 20) {
@@ -737,7 +806,12 @@ class Handler {
           break;
         }
 
-        // Si hay contenido sustancial, agregarlo al ticket
+        const location = detectLocation(text);
+        if (location && !ticket.location) {
+          ticket.location = location;
+          console.log(`   📍 Ubicación guardada: ${location}`);
+        }
+
         appendUpdate({
           store: this.store,
           ticket,
@@ -791,6 +865,8 @@ class Handler {
       '• "Hola" → te saludo y pido tus datos',
       '• "No puedo acceder al correo" → crea ticket automáticamente',
       '• "#T-101 sigue fallando" → actualiza ticket',
+      '• "Ya arreglamos el problema" → cierra el ticket automáticamente',
+      '• "Estoy trabajando en eso" → cambia tu estado a trabajando',
       '',
       '🔐 Owner:',
       '/list - Ver todos los tickets',
