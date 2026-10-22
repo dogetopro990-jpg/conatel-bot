@@ -8,17 +8,39 @@ const URGENCY_SCORE = {
 };
 
 function calculateScore(ticket) {
+  // Score base por urgencia
   const urgencyScore = URGENCY_SCORE[ticket.urgency] ?? 20;
 
+  // Score por antigüedad (más reactivo: cada 5 minutos en vez de 10)
   const ageScore = Math.min(
     25,
-    Math.floor(minutesSince(ticket.updatedAt || ticket.createdAt) / 10) * 3
+    Math.floor(minutesSince(ticket.updatedAt || ticket.createdAt) / 5) * 2
   );
 
-  const messageScore = Math.min(10, ticket.messages.length);
+  // Score por insistencia del SOLICITANTE (no todos los mensajes)
+  const requesterMessages = ticket.messages.filter(
+    m => m.from === ticket.requesterPhone
+  ).length;
+  const insistenceScore = Math.min(15, requesterMessages * 3);
+
+  // Score por estado
   const statusScore = ticket.status === 'en_progreso' ? 5 : 0;
 
-  return Math.min(100, urgencyScore + ageScore + messageScore + statusScore);
+  // Bonus por tiempo sin asignar (si lleva más de 30 min sin asignar)
+  let unassignedBonus = 0;
+  if (!ticket.assignedTo) {
+    const minutesUnassigned = minutesSince(ticket.createdAt);
+    if (minutesUnassigned > 30) {
+      unassignedBonus = Math.min(10, Math.floor((minutesUnassigned - 30) / 10));
+    }
+  }
+
+  const totalScore = Math.min(
+    100,
+    urgencyScore + ageScore + insistenceScore + statusScore + unassignedBonus
+  );
+
+  return totalScore;
 }
 
 function scoreToLevel(score) {

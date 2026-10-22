@@ -61,6 +61,12 @@ const RESPONSES = {
     '¿Qué cargo tienes en la empresa?',
     '¿Me puedes decir tu cargo?'
   ],
+  pedir_ubicacion: [
+    '¿En qué lugar específico es el problema?',
+    '¿Me puedes decir la ubicación exacta?',
+    '¿Dónde exactamente ocurre el problema?',
+    '¿En qué oficina o área es?'
+  ],
   transicion_a_solicitud: [
     'Bien {nombre}, ¿qué necesitas?',
     'Perfecto {nombre}, ¿en qué te ayudo?',
@@ -110,9 +116,13 @@ const RESPONSES = {
 function getRandomResponse(category, replacements = {}) {
   const responses = getMessages(category, RESPONSES[category]) || RESPONSES.no_entendido;
   let response = responses[Math.floor(Math.random() * responses.length)];
+  
+  // Reemplazar TODOS los placeholders
   Object.keys(replacements).forEach(key => {
-    response = response.replace(`{${key}}`, replacements[key]);
+    const regex = new RegExp(`\\{${key}\\}`, 'g');
+    response = response.replace(regex, replacements[key] || '');
   });
+  
   return response;
 }
 
@@ -325,27 +335,48 @@ function detectEmployeeState(text) {
 
 // ============ DETECTAR UBICACIÓN ============
 
+// ============ DETECTAR UBICACIÓN MEJORADA ============
+
 function detectLocation(text) {
   const t = text.trim();
   
+  // Patrones más flexibles para detectar ubicaciones
   const patterns = [
-    /(?:en|está en|es en|ubicado en|se encuentra en)\s+(.+?)(?:\.|,|$)/i,
-    /(?:oficina|sala|piso|área|departamento|lugar)\s+(.+?)(?:\.|,|$)/i,
-    /(?:edificio|piso|planta)\s+(\d+|[a-z]+)(?:\.|,|$)/i
+    // "en el piso X, área de Y"
+    /(?:en|está en|es en|ubicado en|se encuentra en)\s+(el\s+)?(piso\s+\d+|área\s+de\s+\w+|oficina\s+de\s+\w+|sala\s+\w+|departamento\s+de\s+\w+)(?:\s*,\s*(.+?))?(?:\.|,|$)/i,
+    // "piso X por el área de Y"
+    /(piso\s+\d+)\s+(por|cerca de|al lado de|frente a)\s+(el\s+)?(área\s+de\s+\w+|oficina\s+de\s+\w+|sala\s+\w+)(?:\.|,|$)/i,
+    // "área de X" o "oficina de X"
+    /(?:área|oficina|sala|departamento|sección)\s+de\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?)(?:\.|,|$)/i,
+    // "piso X"
+    /piso\s+(\d+|[a-z]+)(?:\.|,|$)/i,
+    // Ubicación genérica después de preposición
+    /(?:en|por|cerca de|al lado de|frente a)\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,5})(?:\.|,|$)/i
   ];
   
   for (const pattern of patterns) {
     const match = t.match(pattern);
-    if (match && match[1]) {
-      const location = match[1].trim();
-      if (location.length > 2 && location.length < 100) {
+    if (match) {
+      // Construir la ubicación completa
+      const parts = match.slice(1).filter(p => p && p.length > 1);
+      const location = parts.join(', ').trim();
+      
+      if (location.length > 2 && location.length < 150) {
+        console.log(`   📍 Ubicación detectada: "${location}"`);
         return location;
       }
     }
   }
   
-  if (t.length < 50 && !/^(hola|gracias|ok|si|no)/i.test(t)) {
-    return t;
+  // Si el mensaje es corto y parece una ubicación (no es un saludo o pregunta)
+  if (t.length < 80 && 
+      !/^(hola|gracias|ok|si|no|buenos|buenas|que|como|cuando|donde)/i.test(t) &&
+      !/\?$/.test(t)) {
+    // Verificar si contiene palabras de ubicación
+    if (/(piso|área|oficina|sala|departamento|edificio|caja|cajas|recepción|entrada|salida|baño|cocina|comedor)/i.test(t)) {
+      console.log(`   📍 Ubicación detectada (mensaje corto): "${t}"`);
+      return t;
+    }
   }
   
   return null;
@@ -421,7 +452,18 @@ function fallbackDetectIntent(text, context = {}) {
     return { intencion: 'actualizar_ticket', ticket_id: ticketId, urgencia: detectUrgencyFromText(text), descripcion: text, confianza: 85 };
   }
 
-  // PRIORIDAD: Aclaración automática si el empleado asignado habla
+  // PRIORIDAD 1: Si hay ticket activo y el usuario es el SOLICITANTE, es aclaración
+  if (context.activeTicket && context.activeTicket.requesterPhone === context.employeePhone) {
+    console.log(`   📝 Aclaración del solicitante para ticket #T-${context.activeTicket.id}`);
+    return { 
+      intencion: 'aclaracion_automatica', 
+      ticket_id: context.activeTicket.id,
+      descripcion: text,
+      confianza: 90 
+    };
+  }
+
+  // PRIORIDAD 2: Si el empleado asignado habla sobre su ticket activo
   if (context.activeTicket && context.activeTicket.assignedTo === context.employeePhone) {
     console.log(`   📝 Aclaración automática para ticket #T-${context.activeTicket.id}`);
     return { 
@@ -432,7 +474,22 @@ function fallbackDetectIntent(text, context = {}) {
     };
   }
 
+  // PRIORIDAD 3: Si hay ticket activo y el mensaje parece ser información adicional
   if (context.activeTicket) {
+    // Detectar si es información adicional (no un problema nuevo)
+    const additionalInfo = /^(mira|oye|ah|por\s+cierto|tambien|ademas|sobre|respecto|referente|relacionado|lo\s+que|eso|eso\s+era|era\s+que|resulta\s+que|pasa\s+que|es\s+que)/i;
+    
+    if (additionalInfo.test(t) || t.length < 100) {
+      console.log(`   📝 Información adicional para ticket #T-${context.activeTicket.id}`);
+      return { 
+        intencion: 'aclaracion_automatica', 
+        ticket_id: context.activeTicket.id,
+        descripcion: text,
+        confianza: 85 
+      };
+    }
+    
+    // Referencias explícitas a tickets
     const ticketRef = /(ticket\s+(anterior|activo|actual|este)|el\s+ticket|mi\s+ticket|actualizar|agregar|añadir|informar|comentar)/i;
     
     if (ticketRef.test(t)) {
@@ -449,9 +506,10 @@ function fallbackDetectIntent(text, context = {}) {
   let area = safeArea(text);
   const urgencia = detectUrgencyFromText(text);
 
+  // Solo crear ticket nuevo si NO hay ticket activo reciente del mismo usuario
   const problemKeywords = /(no\s?(puedo|funciona|hay|entra|sirve|anda|imprime|conecta|carga)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo|tinta|toner)|computadora|pc|equipo|molestia|molesto|lento|demora|no\s?me\s?deja|no\s?puedo\s?acceder|no\s?carga|no\s?conecta|impresora|tinta|toner|falta|se\s?quedo|se\s?queda|papel|atascada|no\s?imprime|no\s?escanea|no\s?copia)/i;
   
-  if (problemKeywords.test(t) && t.length >= 5) {
+  if (problemKeywords.test(t) && t.length >= 5 && !context.activeTicket) {
     return { 
       intencion: 'crear_ticket', 
       area, 
@@ -464,7 +522,7 @@ function fallbackDetectIntent(text, context = {}) {
   }
 
   const indirectProblem = /(le\s?hace\s?falta|le\s?falta|necesita|requiere|se\s?acabo|se\s?termino|sin\s+\w+|no\s?tengo)/i;
-  if (indirectProblem.test(t) && t.length >= 5) {
+  if (indirectProblem.test(t) && t.length >= 5 && !context.activeTicket) {
     return { 
       intencion: 'crear_ticket', 
       area, 

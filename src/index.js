@@ -11,6 +11,8 @@ const config = require('./config');
 const logger = require('./logger');
 const Store = require('./store');
 const ResponseQueue = require('./queue');
+const SafetyManager = require('./safety');
+const SafeQueue = require('./safeQueue');
 const Handler = require('./handler');
 const { startAlerts } = require('./alerts');
 const { startPanel } = require('./panel');
@@ -26,6 +28,8 @@ let panelStarted = false;
 let notificationsStarted = false;
 let reconnecting = false;
 let botPhoneNumber = null;
+let safety = null;
+let safeQueue = null;
 
 async function sendText(jid, text) {
   if (!sock || !sock.user?.id || !jid || !text) return false;
@@ -64,6 +68,16 @@ async function start() {
   const store = new Store(config.dataFile);
   await store.load();
 
+  // Inicializar sistema de seguridad
+  safety = new SafetyManager(store);
+  
+  safeQueue = new SafeQueue({
+    sendText,
+    sendPresence,
+    logger,
+    safety
+  });
+
   const responseQueue = new ResponseQueue({
     sendText,
     sendPresence,
@@ -75,6 +89,8 @@ async function start() {
   const handler = new Handler({
     store,
     responseQueue,
+    safeQueue,
+    safety,
     logger,
     sendText,
     sendPresence
@@ -85,33 +101,26 @@ async function start() {
     startAlerts({ sendText, store, logger });
   }
 
-  // ===== PANEL WEB =====
   if (!panelStarted) {
     panelStarted = true;
-
     try {
-      startPanel({ store, sendText, logger });
+      startPanel({ store, sendText, logger, safety, safeQueue });
     } catch (error) {
       console.error('❌ Error fatal al iniciar el panel:', error);
     }
   }
-  // =====================
 
-  // ===== PROCESADOR DE NOTIFICACIONES =====
   if (!notificationsStarted) {
     notificationsStarted = true;
-
     setInterval(async () => {
       try {
         await processPendingNotifications({ store, sendText, logger });
       } catch (error) {
         logger.error({ err: error.message }, 'Error procesando notificaciones');
       }
-    }, 60000); // Cada minuto
-
+    }, 60000);
     console.log('⏰ Procesador de notificaciones iniciado (cada 60s)');
   }
-  // ========================================
 
   async function connect() {
     const { state, saveCreds } = await useMultiFileAuthState(config.authFolder);
@@ -143,7 +152,6 @@ async function start() {
 
         if (code !== DisconnectReason.loggedOut && !reconnecting) {
           reconnecting = true;
-
           setTimeout(async () => {
             reconnecting = false;
             await connect();

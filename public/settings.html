@@ -11,59 +11,62 @@
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 24px;
     }
-    
-    .form-group {
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block; font-size: 14px; font-weight: 500;
+      margin-bottom: 6px; color: var(--text-secondary);
+    }
+    .form-group small {
+      display: block; margin-top: 4px;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .toggle-container {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px; background: var(--bg-tertiary);
+      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px;
+    }
+    .toggle-label h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+    .toggle-label p { font-size: 12px; color: var(--text-muted); }
+    .toggle-switch { position: relative; width: 50px; height: 26px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background-color: var(--bg-hover); transition: .3s;
+      border-radius: 26px; border: 1px solid var(--border);
+    }
+    .toggle-slider:before {
+      position: absolute; content: ""; height: 20px; width: 20px;
+      left: 3px; bottom: 2px; background-color: white;
+      transition: .3s; border-radius: 50%;
+    }
+    input:checked + .toggle-slider { background-color: var(--accent); }
+    input:checked + .toggle-slider:before { transform: translateX(24px); }
+    .area-list { max-height: 400px; overflow-y: auto; }
+    .area-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px; background: var(--bg-tertiary);
+      border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px;
+    }
+    .message-category { margin-bottom: 20px; }
+    .message-category label {
+      display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px;
+    }
+    .message-category small {
+      display: block; margin-bottom: 8px;
+      font-size: 12px; color: var(--text-muted);
+    }
+    .warning-box {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid var(--warning);
+      border-radius: 8px; padding: 12px;
+      font-size: 13px; color: var(--text-primary);
       margin-bottom: 16px;
     }
-    
-    .form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: var(--text-secondary);
-    }
-    
-    .form-group small {
-      display: block;
-      margin-top: 4px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    
-    .area-list {
-      max-height: 400px;
-      overflow-y: auto;
-    }
-    
-    .area-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px;
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      margin-bottom: 8px;
-    }
-    
-    .message-category {
-      margin-bottom: 20px;
-    }
-    
-    .message-category label {
-      display: block;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: var(--text-primary);
-    }
-    
-    .message-category small {
-      display: block;
-      margin-bottom: 8px;
-      font-size: 12px;
-      color: var(--text-muted);
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px; background: var(--bg-tertiary);
+      padding: 12px; border-radius: 8px; margin-bottom: 16px;
     }
   </style>
 </head>
@@ -77,13 +80,13 @@
       </div>
     </div>
     <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="tickets.html">Tickets</a>
-      <a href="resolved.html">Resueltos</a>
-      <a href="employees.html">Empleados</a>
-      <a href="messages.html">Mensajes</a>
-      <a href="settings.html" class="active">Config</a>
-      <a href="users.html" id="usersLink">Usuarios</a>
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html">Tickets</a>
+      <a href="/resolved.html">Resueltos</a>
+      <a href="/employees.html">Empleados</a>
+      <a href="/messages.html">Mensajes</a>
+      <a href="/settings.html" class="active">Config</a>
+      <a href="/users.html" id="usersLink">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
@@ -99,102 +102,197 @@
     <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 24px;">Configuración del Bot</h2>
     
     <div class="settings-grid">
-      <!-- Configuración General -->
+      <!-- General -->
       <div class="card">
-        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">⚙️ Configuración General</h3>
-        
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">⚙️ General</h3>
         <div class="form-group">
           <label>Nombre del Bot</label>
           <input type="text" id="botName" />
-          <small>Nombre que se mostrará en los mensajes</small>
         </div>
-        
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
           <div class="form-group">
             <label>Delay Mínimo (ms)</label>
             <input type="number" id="minDelay" min="0" />
-            <small>Tiempo mínimo antes de responder</small>
           </div>
           <div class="form-group">
             <label>Delay Máximo (ms)</label>
             <input type="number" id="maxDelay" min="0" />
-            <small>Tiempo máximo antes de responder</small>
           </div>
         </div>
-        
         <div class="form-group">
           <label>Umbral de Prioridad (0-100)</label>
           <input type="number" id="threshold" min="0" max="100" />
-          <small>Score mínimo para generar alertas automáticas</small>
         </div>
-        
-        <div class="form-group">
-          <label style="display: flex; align-items: center; gap: 8px;">
-            <input type="checkbox" id="autoAlerts" style="width: auto;" />
-            Alertas Automáticas
-          </label>
-          <small>Enviar avisos según prioridad de tickets</small>
-        </div>
-        
-        <button class="btn btn-primary" onclick="saveGeneral()" style="width: 100%;">💾 Guardar Configuración</button>
+        <button class="btn btn-primary" onclick="saveGeneral()" style="width: 100%;">💾 Guardar</button>
       </div>
 
-      <!-- Gestión de Áreas -->
+      <!-- Alertas -->
       <div class="card">
-        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">🏢 Áreas de la Empresa</h3>
-        
-        <div class="area-list" id="areasList"></div>
-        
-        <div style="display: flex; gap: 8px; margin-top: 16px;">
-          <input type="text" id="newArea" placeholder="Nueva área..." style="flex: 1;" />
-          <button class="btn btn-primary" onclick="addArea()">+ Agregar</button>
+        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">🔔 Alertas Automáticas</h3>
+        <div class="toggle-container">
+          <div class="toggle-label">
+            <h4>Activar Alertas Automáticas</h4>
+            <p>Enviar notificaciones según prioridad</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="autoAlerts" />
+            <span class="toggle-slider"></span>
+          </label>
         </div>
+        <div class="toggle-container">
+          <div class="toggle-label">
+            <h4>Notificar al Solicitante</h4>
+            <p>Al cerrar ticket</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="notifyRequester" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="toggle-container">
+          <div class="toggle-label">
+            <h4>Notificar al Empleado Asignado</h4>
+            <p>Al asignar ticket</p>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="notifyAssignee" />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <button class="btn btn-primary" onclick="saveAlerts()" style="width: 100%;">💾 Guardar</button>
       </div>
     </div>
 
-    <!-- Mensajes Automáticos -->
+    <!-- Seguridad Anti-Baneo -->
+    <div class="card" style="margin-top: 24px;">
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">🛡️ Seguridad Anti-Baneo</h3>
+      <div class="warning-box">
+        <strong>⚠️ Importante:</strong> Estas configuraciones reducen el riesgo de baneo pero <strong>NO lo eliminan</strong>. 
+        Baileys usa protocolo no oficial. Para producción considera migrar a la API oficial de WhatsApp Business.
+      </div>
+
+      <div id="safetyStats" class="stats-grid"></div>
+
+      <div class="toggle-container">
+        <div class="toggle-label">
+          <h4>Habilitar Broadcast Masivo</h4>
+          <p>Permite enviar mensajes a todos los empleados</p>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="broadcastEnabled" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-container">
+        <div class="toggle-label">
+          <h4>Respetar Horario Laboral</h4>
+          <p>Solo enviar mensajes dentro del horario configurado</p>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="businessHoursEnabled" />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
+        <div class="form-group">
+          <label>Hora inicio laboral</label>
+          <input type="number" id="businessHourStart" min="0" max="23" />
+        </div>
+        <div class="form-group">
+          <label>Hora fin laboral</label>
+          <input type="number" id="businessHourEnd" min="0" max="23" />
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px;">
+        <div class="form-group">
+          <label>Máx. mensajes/hora</label>
+          <input type="number" id="maxMessagesPerHour" min="1" max="60" />
+          <small>Recomendado: 5-10</small>
+        </div>
+        <div class="form-group">
+          <label>Máx. mensajes/día</label>
+          <input type="number" id="maxMessagesPerDay" min="1" max="200" />
+          <small>Recomendado: 30-50</small>
+        </div>
+        <div class="form-group">
+          <label>Máx. por destinatario/día</label>
+          <input type="number" id="maxMessagesPerRecipientPerDay" min="1" max="10" />
+          <small>Recomendado: 2-3</small>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;">
+        <div class="form-group">
+          <label>Delay mínimo entre mensajes (seg)</label>
+          <input type="number" id="minDelayBetweenMessages" min="5" max="120" />
+          <small>Recomendado: 15-30s</small>
+        </div>
+        <div class="form-group">
+          <label>Delay máximo entre mensajes (seg)</label>
+          <input type="number" id="maxDelayBetweenMessages" min="10" max="180" />
+          <small>Recomendado: 30-60s</small>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-top: 20px;">
+        <button class="btn btn-primary" onclick="saveSafety()" style="flex: 1;">💾 Guardar</button>
+        <button class="btn btn-secondary" onclick="resetSafety()">🔄 Resetear</button>
+      </div>
+
+      <div style="margin-top: 16px; padding: 12px; background: var(--bg-tertiary); border-radius: 8px; font-size: 12px; color: var(--text-muted);">
+        <strong>💡 Recomendaciones:</strong>
+        <ul style="margin-top: 8px; padding-left: 20px;">
+          <li>Usa broadcast solo cuando sea necesario</li>
+          <li>Prioriza mensajes individuales con contexto</li>
+          <li>Considera crear un grupo de WhatsApp para anuncios</li>
+          <li>Para producción, migra a la API oficial de WhatsApp Business</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Áreas -->
+    <div class="card" style="margin-top: 24px;">
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">🏢 Áreas de la Empresa</h3>
+      <div class="area-list" id="areasList"></div>
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <input type="text" id="newArea" placeholder="Nueva área..." style="flex: 1;" />
+        <button class="btn btn-primary" onclick="addArea()">+ Agregar</button>
+      </div>
+    </div>
+
+    <!-- Mensajes -->
     <div class="card" style="margin-top: 24px;">
       <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">💬 Mensajes Automáticos</h3>
       <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 20px;">
-        Personaliza las respuestas del bot. Agrega múltiples opciones separadas por línea. El bot elegirá una al azar.
+        Personaliza respuestas del bot. Múltiples opciones separadas por línea.
       </p>
-      
       <div class="message-category">
-        <label>Saludo (usuarios no registrados)</label>
-        <small>Mensajes de bienvenida para nuevos usuarios</small>
+        <label>Saludo (no registrados)</label>
         <textarea id="msg_saludo" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      
       <div class="message-category">
-        <label>Saludo (usuarios registrados)</label>
-        <small>Usa {nombre} para insertar el nombre del usuario</small>
+        <label>Saludo (registrados) - usa {nombre}</label>
         <textarea id="msg_saludo_registrado" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      
       <div class="message-category">
-        <label>Transición después del registro</label>
-        <small>Usa {nombre} para insertar el nombre del usuario</small>
+        <label>Transición post-registro - usa {nombre}</label>
         <textarea id="msg_transicion_a_solicitud" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      
       <div class="message-category">
         <label>Problema detectado</label>
-        <small>Respuestas cuando se detecta un problema</small>
         <textarea id="msg_problema_detectado" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      
       <div class="message-category">
         <label>Agradecimiento</label>
-        <small>Respuestas cuando el usuario agradece</small>
         <textarea id="msg_agradecimiento" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      
       <div class="message-category">
         <label>Despedida</label>
-        <small>Respuestas cuando el usuario se despide</small>
         <textarea id="msg_despedida" rows="3" style="font-family: monospace; font-size: 13px;"></textarea>
       </div>
-      
       <button class="btn btn-primary" onclick="saveMessages()" style="width: 100%; margin-top: 16px;">💾 Guardar Mensajes</button>
     </div>
 
@@ -204,7 +302,6 @@
   <script>
     let currentUser = null;
 
-    // Verificar autenticación
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -214,22 +311,15 @@
         currentUser = user;
         document.getElementById('userName').textContent = user.name;
         document.getElementById('userRole').textContent = user.role;
-        
         if (user.role !== 'admin') {
           document.getElementById('usersLink').style.display = 'none';
-          document.body.innerHTML = '<div style="text-align: center; padding: 100px; color: var(--text-muted);">No tienes permisos para acceder a esta página</div>';
+          document.body.innerHTML = '<div style="text-align: center; padding: 100px; color: var(--text-muted);">Sin permisos</div>';
           return;
         }
-        
-        loadGeneral();
-        loadAreas();
-        loadMessages();
+        loadGeneral(); loadAlerts(); loadSafety(); loadAreas(); loadMessages();
       })
-      .catch(() => {
-        window.location.href = '/login.html';
-      });
+      .catch(() => { window.location.href = '/login.html'; });
 
-    // Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     
@@ -246,18 +336,12 @@
     }
 
     async function loadGeneral() {
-      try {
-        const res = await fetch('/api/config/general');
-        const data = await res.json();
-        
-        document.getElementById('botName').value = data.botName || '';
-        document.getElementById('minDelay').value = data.minDelayMs || 300;
-        document.getElementById('maxDelay').value = data.maxDelayMs || 800;
-        document.getElementById('threshold').value = data.priorityThreshold || 70;
-        document.getElementById('autoAlerts').checked = data.autoAlerts !== false;
-      } catch (error) {
-        console.error('Error:', error);
-      }
+      const res = await fetch('/api/config/general');
+      const data = await res.json();
+      document.getElementById('botName').value = data.botName || '';
+      document.getElementById('minDelay').value = data.minDelayMs || 300;
+      document.getElementById('maxDelay').value = data.maxDelayMs || 800;
+      document.getElementById('threshold').value = data.priorityThreshold || 70;
     }
 
     async function saveGeneral() {
@@ -265,133 +349,181 @@
         botName: document.getElementById('botName').value,
         minDelayMs: Number(document.getElementById('minDelay').value),
         maxDelayMs: Number(document.getElementById('maxDelay').value),
-        priorityThreshold: Number(document.getElementById('threshold').value),
-        autoAlerts: document.getElementById('autoAlerts').checked
+        priorityThreshold: Number(document.getElementById('threshold').value)
       };
-
       try {
         const res = await fetch('/api/config/general', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
+        showResult(res.ok ? '✓ General guardada' : '✗ Error', !res.ok);
+      } catch { showResult('✗ Error de red', true); }
+    }
 
-        if (res.ok) {
-          showResult('✓ Configuración general guardada');
-        } else {
-          showResult('✗ Error al guardar', true);
-        }
+    async function loadAlerts() {
+      const res = await fetch('/api/config/alerts');
+      const data = await res.json();
+      document.getElementById('autoAlerts').checked = data.autoAlerts !== false;
+      document.getElementById('notifyRequester').checked = data.notifyRequester !== false;
+      document.getElementById('notifyAssignee').checked = data.notifyAssignee !== false;
+    }
+
+    async function saveAlerts() {
+      const data = {
+        autoAlerts: document.getElementById('autoAlerts').checked,
+        notifyRequester: document.getElementById('notifyRequester').checked,
+        notifyAssignee: document.getElementById('notifyAssignee').checked
+      };
+      try {
+        const res = await fetch('/api/config/alerts', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        showResult(res.ok ? '✓ Alertas guardadas' : '✗ Error', !res.ok);
+      } catch { showResult('✗ Error de red', true); }
+    }
+
+    async function loadSafety() {
+      try {
+        const res = await fetch('/api/config/safety');
+        const data = await res.json();
+        const { config, stats } = data;
+        
+        document.getElementById('broadcastEnabled').checked = config.broadcastEnabled;
+        document.getElementById('businessHoursEnabled').checked = config.businessHoursEnabled;
+        document.getElementById('businessHourStart').value = config.businessHourStart;
+        document.getElementById('businessHourEnd').value = config.businessHourEnd;
+        document.getElementById('maxMessagesPerHour').value = config.maxMessagesPerHour;
+        document.getElementById('maxMessagesPerDay').value = config.maxMessagesPerDay;
+        document.getElementById('maxMessagesPerRecipientPerDay').value = config.maxMessagesPerRecipientPerDay;
+        document.getElementById('minDelayBetweenMessages').value = config.minDelayBetweenMessages / 1000;
+        document.getElementById('maxDelayBetweenMessages').value = config.maxDelayBetweenMessages / 1000;
+        
+        document.getElementById('safetyStats').innerHTML = `
+          <div>
+            <div style="color: var(--text-muted);">Estado</div>
+            <div style="font-weight: 600; color: ${stats.paused ? 'var(--error)' : 'var(--success)'};">
+              ${stats.paused ? '⛔ PAUSADO' : '✅ ACTIVO'}
+            </div>
+          </div>
+          <div>
+            <div style="color: var(--text-muted);">Enviados hoy</div>
+            <div style="font-weight: 600;">${stats.messagesToday} / ${stats.limits.perDay}</div>
+          </div>
+          <div>
+            <div style="color: var(--text-muted);">Esta hora</div>
+            <div style="font-weight: 600;">${stats.messagesThisHour} / ${stats.limits.perHour}</div>
+          </div>
+          <div>
+            <div style="color: var(--text-muted);">Horario</div>
+            <div style="font-weight: 600;">${stats.businessHours}</div>
+          </div>
+        `;
       } catch (error) {
-        showResult('✗ Error de red', true);
+        console.error('Error cargando seguridad:', error);
       }
     }
 
-    async function loadAreas() {
+    async function saveSafety() {
+      const data = {
+        broadcastEnabled: document.getElementById('broadcastEnabled').checked,
+        businessHoursEnabled: document.getElementById('businessHoursEnabled').checked,
+        businessHourStart: Number(document.getElementById('businessHourStart').value),
+        businessHourEnd: Number(document.getElementById('businessHourEnd').value),
+        maxMessagesPerHour: Number(document.getElementById('maxMessagesPerHour').value),
+        maxMessagesPerDay: Number(document.getElementById('maxMessagesPerDay').value),
+        maxMessagesPerRecipientPerDay: Number(document.getElementById('maxMessagesPerRecipientPerDay').value),
+        minDelayBetweenMessages: Number(document.getElementById('minDelayBetweenMessages').value) * 1000,
+        maxDelayBetweenMessages: Number(document.getElementById('maxDelayBetweenMessages').value) * 1000
+      };
       try {
-        const res = await fetch('/api/areas');
-        const areas = await res.json();
-        
-        document.getElementById('areasList').innerHTML = areas.map(a => `
-          <div class="area-item">
-            <span>${a}</span>
-            <button class="btn btn-danger" onclick="deleteArea('${a.replace(/'/g, "\\'")}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
-          </div>
-        `).join('');
-      } catch (error) {
-        console.error('Error:', error);
-      }
+        const res = await fetch('/api/config/safety', {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        showResult(res.ok ? '✓ Seguridad guardada' : '✗ Error', !res.ok);
+        loadSafety();
+      } catch { showResult('✗ Error de red', true); }
+    }
+
+    async function resetSafety() {
+      if (!confirm('¿Resetear todos los contadores?')) return;
+      try {
+        const res = await fetch('/api/config/safety/reset', { method: 'POST' });
+        if (res.ok) {
+          showResult('✓ Contadores reseteados');
+          loadSafety();
+        }
+      } catch { showResult('✗ Error de red', true); }
+    }
+
+    async function loadAreas() {
+      const res = await fetch('/api/areas');
+      const areas = await res.json();
+      document.getElementById('areasList').innerHTML = areas.map(a => `
+        <div class="area-item">
+          <span>${a}</span>
+          <button class="btn btn-danger" onclick="deleteArea('${a.replace(/'/g, "\\'")}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
+        </div>
+      `).join('');
     }
 
     async function addArea() {
       const area = document.getElementById('newArea').value.trim();
       if (!area) return;
-
       try {
         const res = await fetch('/api/areas', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ area })
         });
-
         if (res.ok) {
           document.getElementById('newArea').value = '';
           loadAreas();
           showResult('✓ Área agregada');
-        } else {
-          showResult('✗ Error al agregar área', true);
         }
-      } catch (error) {
-        showResult('✗ Error de red', true);
-      }
+      } catch { showResult('✗ Error', true); }
     }
 
     async function deleteArea(area) {
-      if (!confirm(`¿Eliminar área "${area}"?`)) return;
-
+      if (!confirm(`¿Eliminar "${area}"?`)) return;
       try {
         const res = await fetch('/api/areas', {
-          method: 'DELETE',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'DELETE', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ area })
         });
-
         if (res.ok) {
           loadAreas();
           showResult('✓ Área eliminada');
-        } else {
-          showResult('✗ Error al eliminar área', true);
         }
-      } catch (error) {
-        showResult('✗ Error de red', true);
-      }
+      } catch { showResult('✗ Error', true); }
     }
 
     async function loadMessages() {
-      try {
-        const res = await fetch('/api/config/messages');
-        const messages = await res.json();
-        
-        const categories = ['saludo', 'saludo_registrado', 'transicion_a_solicitud', 'problema_detectado', 'agradecimiento', 'despedida'];
-        categories.forEach(cat => {
-          const textarea = document.getElementById(`msg_${cat}`);
-          if (textarea && messages[cat]) {
-            textarea.value = messages[cat].join('\n');
-          }
-        });
-      } catch (error) {
-        console.error('Error:', error);
-      }
+      const res = await fetch('/api/config/messages');
+      const messages = await res.json();
+      ['saludo', 'saludo_registrado', 'transicion_a_solicitud', 'problema_detectado', 'agradecimiento', 'despedida'].forEach(cat => {
+        const textarea = document.getElementById(`msg_${cat}`);
+        if (textarea && messages[cat]) textarea.value = messages[cat].join('\n');
+      });
     }
 
     async function saveMessages() {
       const categories = ['saludo', 'saludo_registrado', 'transicion_a_solicitud', 'problema_detectado', 'agradecimiento', 'despedida'];
       const messages = {};
-      
       categories.forEach(cat => {
         const textarea = document.getElementById(`msg_${cat}`);
         if (textarea) {
           const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => l);
-          if (lines.length > 0) {
-            messages[cat] = lines;
-          }
+          if (lines.length > 0) messages[cat] = lines;
         }
       });
-
       try {
         const res = await fetch('/api/config/messages', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(messages)
         });
-
-        if (res.ok) {
-          showResult('✓ Mensajes guardados');
-        } else {
-          showResult('✗ Error al guardar mensajes', true);
-        }
-      } catch (error) {
-        showResult('✗ Error de red', true);
-      }
+        showResult(res.ok ? '✓ Mensajes guardados' : '✗ Error', !res.ok);
+      } catch { showResult('✗ Error de red', true); }
     }
 
     function showResult(msg, isError = false) {

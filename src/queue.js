@@ -1,112 +1,93 @@
-class ResponseQueue {
-  constructor({ sendText, sendPresence, logger, minDelay = 5000, maxDelay = 10000 }) {
+class SafeQueue {
+  constructor({ sendText, sendPresence, logger, safety }) {
     this.sendText = sendText;
     this.sendPresence = sendPresence;
     this.logger = logger;
-    this.minDelay = minDelay;
-    this.maxDelay = maxDelay;
-    this.queue = [];
-    this.processing = false;
+    this.safety = safety;
+    this.queue = new Map(); // chatId -> [jobs]
+    this.processing = new Set();
   }
 
-  enqueue(chatId, buildResponse) {
-    const timestamp = new Date().toISOString();
-    const chatIdClean = chatId.split('@')[0];
-
-    console.log(`\n📋 [${timestamp}]`);
-    console.log(`   ENCOLADO → ${chatIdClean}`);
-    console.log(`   Posición en cola: ${this.queue.length + 1}`);
-
-    return new Promise((resolve, reject) => {
-      this.queue.push({ chatId, buildResponse, resolve, reject });
-      this.process();
-    });
+  enqueue(chatId, job) {
+    if (!this.queue.has(chatId)) {
+      this.queue.set(chatId, []);
+    }
+    this.queue.get(chatId).push(job);
+    this.process(chatId);
   }
 
-  // Mantiene el typing activo enviando "composing" cada segundo
-  startTypingLoop(chatId) {
-    let stopped = false;
+  async process(chatId) {
+    if (this.processing.has(chatId)) return;
+    this.processing.add(chatId);
 
-    const loop = async () => {
-      while (!stopped) {
-        try {
-          await this.sendPresence(chatId, 'composing');
-        } catch (error) {
-          // Ignorar errores de presence
-        }
-        await this.sleep(1000); // Enviar cada 1 segundo
-      }
-    };
-
-    loop();
-
-    return () => {
-      stopped = true;
-    };
-  }
-
-    async process() {
-    if (this.processing) return;
-    this.processing = true;
-
-    while (this.queue.length > 0) {
-      const task = this.queue.shift();
-      const delay = this.randomDelay();
-      const chatIdClean = task.chatId.split('@')[0];
-
-      console.log(`\n⏳ [${new Date().toISOString()}]`);
-      console.log(`   Procesando → ${chatIdClean}`);
-      console.log(`   Delay: ${(delay / 1000).toFixed(1)}s`);
-
+    const jobs = this.queue.get(chatId) || [];
+    while (jobs.length > 0) {
+      const job = jobs.shift();
       try {
-        // 1. Iniciar typing Y generar respuesta en paralelo
-        console.log(`   📝 TYPING activado + 🧠 IA procesando...`);
-        const stopTyping = this.startTypingLoop(task.chatId);
-
-        // Ejecutar IA mientras transcurre el delay
-        const [response] = await Promise.all([
-          task.buildResponse(),           // IA procesando
-          this.sleep(delay)               // Delay de typing
-        ]);
-
-        // 2. Detener typing
-        stopTyping();
-        try {
-          await this.sendPresence(task.chatId, 'paused');
-        } catch (error) {
-          // Ignorar
-        }
-        console.log(`   ⏸️  TYPING desactivado`);
-
-        // 3. Enviar respuesta
-        if (response && typeof response === 'string' && response.trim()) {
-          await this.sendText(task.chatId, response);
-        }
-
-        task.resolve(response);
+        await job();
       } catch (error) {
-        this.logger.error?.({ err: error.message }, 'Error en cola de respuestas');
-        task.reject(error);
+        this.logger.error({ err: error.message }, 'Error en cola');
       }
-
-      // 4. Pequeña pausa entre mensajes
-      await this.sleep(300);
     }
 
-    this.processing = false;
+    this.processing.delete(chatId);
+    this.queue.delete(chatId);
   }
 
-  randomDelay() {
-    return Math.floor(Math.random() * (this.maxDelay - this.minDelay + 1)) + this.minDelay;
+  // Enviar con todas las verificaciones de seguridad
+  async safeSend(jid, text, { personalizable = true, employee = null } = {}) {
+    const phone = jid.split('@')[0];
+    
+    // 1. Verificar si podemos enviar
+    const check = this.safety.canSend(phone, text);
+    if (!check.allowed) {
+      console.log(`🛡️  ⛔ Envío bloqueado a ${phone}: ${check.reason}`);
+      return { sent: false, reason: check.reason };
+    }
+
+    // 2. Delay aleatorio de seguridad
+    await this.safety.randomDelay();
+
+    // 3. Personalizar mensaje si es broadcast
+    let finalText = text;
+    if (personalizable && employee && text.startsWith('📢')) {
+      finalText = this.safety.personalizeMessage(text, employee);
+    }
+
+    // 4. Enviar
+    try {
+      const result = await this.sendText(jid, finalText);
+      if (result) {
+        this.safety.recordSend(phone, finalText);
+        console.log(`🛡️  ✅ Mensaje enviado a ${phone}`);
+        return { sent: true };
+      } else {
+        this.safety.recordError(phone);
+        return { sent: false, reason: 'Error de envío' };
+      }
+    } catch (error) {
+      this.safety.recordError(phone);
+      this.logger.error({ err: error.message }, 'Error enviando mensaje seguro');
+      return { sent: false, reason: error.message };
+    }
   }
 
-  sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
+  // Broadcast seguro a múltiples destinatarios
+  async safeBroadcast(targets, text, employees = []) {
+    const results = [];
+    const employeeMap = new Map(employees.map(e => [e.phone, e]));
 
-  pending() {
-    return this.queue.length;
+    for (const phone of targets) {
+      const employee = employeeMap.get(phone);
+      const result = await this.safeSend(`${phone}@s.whatsapp.net`, text, {
+        personalizable: true,
+        employee
+      });
+      results.push({ phone, ...result });
+    }
+
+    return results;
   }
 }
 
-module.exports = ResponseQueue;
+module.exports = SafeQueue;

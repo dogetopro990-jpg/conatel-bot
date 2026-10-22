@@ -7,52 +7,33 @@
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     .modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(4px);
-      z-index: 50;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+      z-index: 50; align-items: center; justify-content: center; padding: 20px;
     }
-    
-    .modal.active {
-      display: flex;
-    }
-    
+    .modal.active { display: flex; }
     .modal-content {
-      background: var(--bg-secondary);
-      border-radius: 12px;
-      width: 100%;
-      max-width: 500px;
-      border: 1px solid var(--border);
+      background: var(--bg-secondary); border-radius: 12px;
+      width: 100%; max-width: 500px; border: 1px solid var(--border);
       box-shadow: var(--shadow-lg);
     }
-    
     .modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      padding: 20px 24px; border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
     }
-    
-    .modal-body {
-      padding: 24px;
-    }
-    
-    .form-group {
-      margin-bottom: 16px;
-    }
-    
+    .modal-body { padding: 24px; }
+    .form-group { margin-bottom: 16px; }
     .form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: var(--text-secondary);
+      display: block; font-size: 14px; font-weight: 500;
+      margin-bottom: 6px; color: var(--text-secondary);
+    }
+    .checkbox-group {
+      display: flex; align-items: center; gap: 8px;
+      padding: 12px; background: var(--bg-tertiary);
+      border: 1px solid var(--border); border-radius: 8px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: 18px; height: 18px;
     }
   </style>
 </head>
@@ -66,13 +47,13 @@
       </div>
     </div>
     <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="tickets.html">Tickets</a>
-      <a href="resolved.html">Resueltos</a>
-      <a href="employees.html" class="active">Empleados</a>
-      <a href="messages.html">Mensajes</a>
-      <a href="settings.html" id="settingsLink">Config</a>
-      <a href="users.html" id="usersLink">Usuarios</a>
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html">Tickets</a>
+      <a href="/resolved.html">Resueltos</a>
+      <a href="/employees.html" class="active">Empleados</a>
+      <a href="/messages.html">Mensajes</a>
+      <a href="/settings.html" id="settingsLink">Config</a>
+      <a href="/users.html" id="usersLink">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
@@ -98,48 +79,53 @@
             <th>Teléfono</th>
             <th>Área</th>
             <th>Cargo</th>
+            <th>Notificaciones</th>
             <th id="actionsHeader">Acciones</th>
           </tr>
         </thead>
         <tbody id="employeesTableBody">
-          <tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
+          <tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
         </tbody>
       </table>
     </div>
   </main>
 
-  <!-- Modal de Formulario -->
   <div id="modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h3 id="modalTitle" style="font-size: 20px; font-weight: 600;">Nuevo Empleado</h3>
         <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">✕</button>
       </div>
-      
       <div class="modal-body">
         <form id="employeeForm">
           <input type="hidden" id="editPhone" />
-          
           <div class="form-group">
             <label>Nombre Completo</label>
             <input type="text" id="fName" required />
           </div>
-          
           <div class="form-group">
             <label>Teléfono (con código país)</label>
             <input type="text" id="fPhone" required placeholder="59170000000" />
           </div>
-          
           <div class="form-group">
             <label>Área</label>
             <select id="fArea" required></select>
           </div>
-          
           <div class="form-group">
             <label>Cargo</label>
             <input type="text" id="fRole" required />
           </div>
-          
+          <div class="form-group">
+            <div class="checkbox-group">
+              <input type="checkbox" id="fNotifications" checked />
+              <label for="fNotifications" style="margin: 0; cursor: pointer;">
+                Permitir notificaciones automáticas
+                <div style="font-size: 12px; color: var(--text-muted); font-weight: normal;">
+                  Recibir mensajes del bot sobre tickets asignados
+                </div>
+              </label>
+            </div>
+          </div>
           <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Guardar</button>
         </form>
       </div>
@@ -148,9 +134,7 @@
 
   <script>
     let currentUser = null;
-    let allAreas = [];
 
-    // Verificar autenticación
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -160,7 +144,6 @@
         currentUser = user;
         document.getElementById('userName').textContent = user.name;
         document.getElementById('userRole').textContent = user.role;
-        
         if (user.role !== 'admin') {
           document.getElementById('settingsLink').style.display = 'none';
           document.getElementById('usersLink').style.display = 'none';
@@ -168,11 +151,8 @@
           document.getElementById('actionsHeader').style.display = 'none';
         }
       })
-      .catch(() => {
-        window.location.href = '/login.html';
-      });
+      .catch(() => { window.location.href = '/login.html'; });
 
-    // Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
     
@@ -190,23 +170,26 @@
 
     async function loadAreas() {
       const res = await fetch('/api/areas');
-      allAreas = await res.json();
-      const select = document.getElementById('fArea');
-      select.innerHTML = allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
+      const areas = await res.json();
+      document.getElementById('fArea').innerHTML = areas.map(a => `<option value="${a}">${a}</option>`).join('');
     }
 
     async function load() {
       try {
         const res = await fetch('/api/employees');
         const employees = await res.json();
-
         const tbody = document.getElementById('employeesTableBody');
+        
         if (employees.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay empleados registrados</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay empleados</td></tr>`;
           return;
         }
 
         tbody.innerHTML = employees.map(e => {
+          const notifBadge = e.notificationsEnabled !== false 
+            ? '<span class="badge badge-success">✓ Activas</span>'
+            : '<span class="badge badge-warning">✗ Pausadas</span>';
+          
           const actions = currentUser && currentUser.role === 'admin'
             ? `<td>
                 <button class="btn btn-secondary" onclick='editEmployee(${JSON.stringify(e)})' style="padding: 6px 12px; font-size: 13px; margin-right: 8px;">Editar</button>
@@ -220,6 +203,7 @@
               <td style="font-family: monospace;">${e.phone}</td>
               <td>${e.area}</td>
               <td>${e.role}</td>
+              <td>${notifBadge}</td>
               ${actions}
             </tr>
           `;
@@ -231,17 +215,16 @@
 
     function openForm() {
       if (!currentUser || currentUser.role !== 'admin') return;
-      
       document.getElementById('modalTitle').textContent = 'Nuevo Empleado';
       document.getElementById('editPhone').value = '';
       document.getElementById('employeeForm').reset();
       document.getElementById('fPhone').disabled = false;
+      document.getElementById('fNotifications').checked = true;
       document.getElementById('modal').classList.add('active');
     }
 
     function editEmployee(e) {
       if (!currentUser || currentUser.role !== 'admin') return;
-      
       document.getElementById('modalTitle').textContent = 'Editar Empleado';
       document.getElementById('editPhone').value = e.phone;
       document.getElementById('fName').value = e.name;
@@ -249,52 +232,45 @@
       document.getElementById('fPhone').disabled = true;
       document.getElementById('fArea').value = e.area;
       document.getElementById('fRole').value = e.role;
+      document.getElementById('fNotifications').checked = e.notificationsEnabled !== false;
       document.getElementById('modal').classList.add('active');
     }
 
     async function deleteEmployee(phone) {
       if (!currentUser || currentUser.role !== 'admin') return;
       if (!confirm('¿Eliminar empleado?')) return;
-      
       try {
         await fetch(`/api/employees/${phone}`, { method: 'DELETE' });
         load();
-      } catch (error) {
-        alert('Error al eliminar');
-      }
+      } catch { alert('Error al eliminar'); }
     }
 
     document.getElementById('employeeForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      
       const editPhone = document.getElementById('editPhone').value;
       const data = {
         name: document.getElementById('fName').value,
         phone: document.getElementById('fPhone').value,
         area: document.getElementById('fArea').value,
-        role: document.getElementById('fRole').value
+        role: document.getElementById('fRole').value,
+        notificationsEnabled: document.getElementById('fNotifications').checked
       };
 
       try {
         if (editPhone) {
           await fetch(`/api/employees/${editPhone}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
         } else {
           await fetch('/api/employees', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
         }
-
         closeModal();
         load();
-      } catch (error) {
-        alert('Error al guardar');
-      }
+      } catch { alert('Error al guardar'); }
     });
 
     function closeModal() {

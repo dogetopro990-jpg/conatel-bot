@@ -24,16 +24,60 @@ function isEmployeeAvailable(phone) {
   return state.state === 'disponible';
 }
 
+// ============ CÁLCULO DE PRIORIDAD DINÁMICA ============
+
+function calculateDynamicPriority(ticket) {
+  const now = Date.now();
+  const createdAt = new Date(ticket.createdAt).getTime();
+  const hoursElapsed = (now - createdAt) / (1000 * 60 * 60);
+  
+  // Prioridad base según urgencia
+  let baseScore = 0;
+  switch (ticket.urgency) {
+    case 'critica': baseScore = 80; break;
+    case 'alta': baseScore = 60; break;
+    case 'media': baseScore = 40; break;
+    case 'baja': baseScore = 20; break;
+    default: baseScore = 40;
+  }
+  
+  // Bonus por tiempo transcurrido (aumenta cada hora)
+  const timeBonus = Math.min(hoursElapsed * 5, 30); // Máximo 30 puntos por tiempo
+  
+  // Bonus por insistencia (número de mensajes del solicitante)
+  const requesterMessages = ticket.messages.filter(m => m.from === ticket.requesterPhone).length;
+  const insistenceBonus = Math.min(requesterMessages * 3, 20); // Máximo 20 puntos por insistencia
+  
+  // Calcular score final
+  const finalScore = Math.min(baseScore + timeBonus + insistenceBonus, 100);
+  
+  // Determinar nivel de prioridad
+  let priorityLevel = 'media';
+  if (finalScore >= 80) priorityLevel = 'critica';
+  else if (finalScore >= 60) priorityLevel = 'alta';
+  else if (finalScore >= 40) priorityLevel = 'media';
+  else priorityLevel = 'baja';
+  
+  return {
+    score: Math.round(finalScore),
+    priorityLevel
+  };
+}
+
 // ============ MENSAJES NATURALES ============
 
 function getNaturalAssignmentMessage(ticket, assigneeName) {
-  const firstName = (ticket.requesterName || 'alguien').split(' ')[0];
+  const requesterFirstName = (ticket.requesterName || 'alguien').split(' ')[0];
+  const assigneeFirstName = assigneeName.split(' ')[0];
+  const location = ticket.location || ticket.area;
+  
   const messages = [
-    `Hola ${assigneeName.split(' ')[0]}, hay un problema en ${ticket.area}. ${firstName} reporta que ${ticket.title.toLowerCase()}. ¿Podrías revisarlo?`,
-    `${assigneeName.split(' ')[0]}, te asignaron un ticket. ${firstName} dice que ${ticket.title.toLowerCase()}. Es del área de ${ticket.area}.`,
-    `Hola ${assigneeName.split(' ')[0]}, ${firstName} necesita ayuda con algo en ${ticket.area}. Dice que ${ticket.title.toLowerCase()}. Échale un ojo cuando puedas.`,
-    `${assigneeName.split(' ')[0]}, hay un problema en ${ticket.area}. ${firstName} lo reportó: ${ticket.title.toLowerCase()}. Avísame si necesitas más detalles.`
+    `Hola ${assigneeFirstName}, ${requesterFirstName} reportó que ${ticket.title.toLowerCase()} en ${location}. ¿Podrías revisarlo?`,
+    `${assigneeFirstName}, hay un problema en ${ticket.area}. ${requesterFirstName} dice que ${ticket.title.toLowerCase()}. Está en ${location}.`,
+    `Hola ${assigneeFirstName}, te asignaron el ticket ${ticket.ticketId || `T-${ticket.id}`}. ${requesterFirstName} necesita ayuda con ${ticket.title.toLowerCase()} en ${location}.`,
+    `${assigneeFirstName}, ${requesterFirstName} tiene un problema: ${ticket.title.toLowerCase()}. Es en ${location}. ¿Puedes echarle un ojo?`
   ];
+  
   return messages[Math.floor(Math.random() * messages.length)];
 }
 
@@ -58,10 +102,10 @@ function getNaturalCloseMessage(ticket, observaciones) {
 
 function getFollowUpMessage(ticket, assigneeName) {
   const messages = [
-    `${assigneeName.split(' ')[0]}, ¿cómo vas con el ticket #T-${ticket.id}? ¿Necesitas ayuda?`,
-    `Hola ${assigneeName.split(' ')[0]}, ¿cómo va lo del ticket #T-${ticket.id}? Avísame si necesitas algo.`,
-    `${assigneeName.split(' ')[0]}, ¿pudiste revisar el ticket #T-${ticket.id}? Cuéntame cómo vas.`,
-    `Hola ${assigneeName.split(' ')[0]}, solo para saber cómo va lo del ticket #T-${ticket.id}. ¿Todo bien?`
+    `${assigneeName.split(' ')[0]}, ¿cómo vas con el ticket ${ticket.ticketId || `T-${ticket.id}`}? ¿Necesitas ayuda?`,
+    `Hola ${assigneeName.split(' ')[0]}, ¿cómo va lo del ticket ${ticket.ticketId || `T-${ticket.id}`}? Avísame si necesitas algo.`,
+    `${assigneeName.split(' ')[0]}, ¿pudiste revisar el ticket ${ticket.ticketId || `T-${ticket.id}`}? Cuéntame cómo vas.`,
+    `Hola ${assigneeName.split(' ')[0]}, solo para saber cómo va lo del ticket ${ticket.ticketId || `T-${ticket.id}`}. ¿Todo bien?`
   ];
   return messages[Math.floor(Math.random() * messages.length)];
 }
@@ -72,8 +116,20 @@ function createTicket({ store, chatId, senderPhone, senderName, classification, 
   const tickets = Object.values(store.data.tickets);
   const id = tickets.length ? Math.max(...tickets.map(t => t.id)) + 1 : 1;
 
+  // Crear ID con prefijo del área
+  const areaPrefix = (classification.area || 'GEN').substring(0, 3).toUpperCase();
+  const ticketId = `${areaPrefix}-${id}`;
+
+  // Calcular prioridad inicial
+  const initialPriority = calculateDynamicPriority({
+    createdAt: nowISO(),
+    urgency: classification.urgencia || 'media',
+    messages: []
+  });
+
   const ticket = {
     id,
+    ticketId,
     chatId,
     requesterPhone: senderPhone,
     requesterName: senderName,
@@ -84,8 +140,8 @@ function createTicket({ store, chatId, senderPhone, senderName, classification, 
     location: classification.location || null,
     status: 'abierta',
     assignedTo: null,
-    priorityLevel: 'media',
-    score: 0,
+    priorityLevel: initialPriority.priorityLevel,
+    score: initialPriority.score,
     createdAt: nowISO(),
     updatedAt: nowISO(),
     messages: [{
@@ -111,10 +167,14 @@ function renumberTickets(store) {
   const newTickets = {};
   tickets.forEach((ticket, index) => {
     const newId = index + 1;
+    const areaPrefix = (ticket.area || 'GEN').substring(0, 3).toUpperCase();
+    
     if (newId !== ticket.id) {
-      console.log(`   🔄 Ticket #T-${ticket.id} renumerado a #T-${newId}`);
+      console.log(`   🔄 Ticket ${ticket.ticketId || `T-${ticket.id}`} renumerado a ${areaPrefix}-${newId}`);
     }
+    
     ticket.id = newId;
+    ticket.ticketId = `${areaPrefix}-${newId}`;
     newTickets[String(newId)] = ticket;
   });
   
@@ -124,23 +184,37 @@ function renumberTickets(store) {
 // ============ ACTUALIZAR TICKET ============
 
 function appendUpdate({ store, ticket, fromPhone, fromName, text, changes = {} }) {
+  const employee = store.data.employees?.[fromPhone];
+  const displayName = employee?.name || fromName || 'Usuario';
+  
   Object.assign(ticket, changes);
   ticket.updatedAt = nowISO();
 
+  // Si es una aclaración, agregarla a la descripción
+  if (changes.kind === 'aclaracion' || changes.kind === 'mensaje_pendiente') {
+    const timestamp = new Date().toLocaleString('es');
+    ticket.description += `\n\n[Actualización ${timestamp}] ${text}`;
+  }
+
   ticket.messages.push({
     from: fromPhone,
-    name: fromName,
+    name: displayName,
     text,
     kind: changes.kind || 'nota',
     at: nowISO()
   });
+
+  // Recalcular prioridad dinámica
+  const newPriority = calculateDynamicPriority(ticket);
+  ticket.score = newPriority.score;
+  ticket.priorityLevel = newPriority.priorityLevel;
 
   return ticket;
 }
 
 // ============ ASIGNAR EMPLEADO ============
 
-function autoAssignAndNotify({ store, ticket, sendText, logger, delayMs = 600000 }) {
+function autoAssignAndNotify({ store, ticket, sendText, logger, delayMs = 0 }) {
   const availableEmployees = Object.values(store.data.employees)
     .filter(e => e.area === ticket.area && isEmployeeAvailable(e.phone));
 
@@ -175,6 +249,7 @@ function autoAssignAndNotify({ store, ticket, sendText, logger, delayMs = 600000
 
   console.log(`   👤 Asignado a: ${assignee.name} (${assignee.phone})`);
 
+  // Enviar notificación INMEDIATA
   const notificationTime = Date.now() + delayMs;
   pendingNotifications.push({
     ticketId: ticket.id,
@@ -185,7 +260,7 @@ function autoAssignAndNotify({ store, ticket, sendText, logger, delayMs = 600000
     isFollowUp: false
   });
 
-  console.log(`   ⏰ Notificación programada para ${new Date(notificationTime).toLocaleString()}`);
+  console.log(`   ⏰ Notificación programada para envío inmediato`);
 
   return assignee;
 }
@@ -217,7 +292,7 @@ async function processPendingNotifications({ store, sendText, logger }) {
     try {
       const sent = await sendText(`${notification.assigneePhone}@s.whatsapp.net`, message);
       if (sent) {
-        console.log(`   ✅ Mensaje enviado a ${notification.assigneeName} por ticket #T-${ticket.id}`);
+        console.log(`   ✅ Mensaje enviado a ${notification.assigneeName} por ticket ${ticket.ticketId || `T-${ticket.id}`}`);
         notification.sent = true;
       }
     } catch (error) {
@@ -238,7 +313,7 @@ async function notifyRequesterOnClose({ ticket, sendText, logger, observaciones 
   }
 
   if (!ticket.requesterPhone) {
-    console.log(`   ⚠️  No se puede notificar cierre: falta el teléfono del solicitante en #T-${ticket.id}`);
+    console.log(`   ⚠️  No se puede notificar cierre: falta el teléfono del solicitante en ${ticket.ticketId || `T-${ticket.id}`}`);
     return;
   }
 
@@ -247,7 +322,7 @@ async function notifyRequesterOnClose({ ticket, sendText, logger, observaciones 
   try {
     const sent = await sendText(`${ticket.requesterPhone}@s.whatsapp.net`, message);
     if (sent) {
-      console.log(`   📤 Notificación de cierre enviada a ${ticket.requesterName} (#T-${ticket.id})`);
+      console.log(`   📤 Notificación de cierre enviada a ${ticket.requesterName} (${ticket.ticketId || `T-${ticket.id}`})`);
     }
   } catch (error) {
     logger?.error({ err: error.message }, 'Error enviando notificación de cierre');
@@ -265,5 +340,6 @@ module.exports = {
   setEmployeeState,
   isEmployeeAvailable,
   getNaturalAssignmentMessage,
-  getFollowUpMessage
+  getFollowUpMessage,
+  calculateDynamicPriority
 };

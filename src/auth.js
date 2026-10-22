@@ -24,6 +24,7 @@ class Auth {
         }
       };
       this.store.save();
+      console.log('   👥 Usuarios por defecto creados: admin/admin123, visualizador/visual123');
     }
   }
 
@@ -71,9 +72,54 @@ class Auth {
     return session;
   }
 
+  // Registro público (desde login.html) - siempre crea visualizadores
+  async registerPublic(username, password, name) {
+    // Validaciones
+    if (!username || !password || !name) {
+      throw new Error('Todos los campos son obligatorios');
+    }
+
+    if (username.length < 3) {
+      throw new Error('El nombre de usuario debe tener al menos 3 caracteres');
+    }
+
+    if (password.length < 6) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    if (this.store.data.users[username]) {
+      throw new Error('El nombre de usuario ya existe');
+    }
+
+    // Crear usuario con rol "visualizador" por defecto
+    this.store.data.users[username] = {
+      username,
+      password: this.hashPassword(password),
+      role: 'visualizador', // Siempre visualizador para registros públicos
+      name,
+      createdAt: new Date().toISOString()
+    };
+
+    await this.store.save();
+    
+    console.log(`   👤 Nuevo usuario registrado: ${username} (${name}) - Rol: visualizador`);
+    
+    return { 
+      username, 
+      role: 'visualizador', 
+      name,
+      message: 'Usuario creado exitosamente con rol de visualizador'
+    };
+  }
+
+  // Crear usuario (solo admin, puede elegir el rol)
   async createUser(username, password, role, name) {
     if (this.store.data.users[username]) {
       throw new Error('El usuario ya existe');
+    }
+
+    if (!['admin', 'visualizador'].includes(role)) {
+      throw new Error('Rol inválido');
     }
 
     this.store.data.users[username] = {
@@ -85,16 +131,25 @@ class Auth {
     };
 
     await this.store.save();
+    
+    console.log(`   👤 Usuario creado: ${username} (${name}) - Rol: ${role}`);
+    
     return { username, role, name };
   }
 
   async deleteUser(username) {
     if (username === 'admin') {
-      throw new Error('No se puede eliminar el usuario admin');
+      throw new Error('No se puede eliminar el usuario admin principal');
+    }
+
+    if (!this.store.data.users[username]) {
+      throw new Error('Usuario no encontrado');
     }
 
     delete this.store.data.users[username];
     await this.store.save();
+    
+    console.log(`   🗑️  Usuario eliminado: ${username}`);
   }
 
   async listUsers() {
@@ -104,6 +159,38 @@ class Auth {
       name: u.name,
       createdAt: u.createdAt
     }));
+  }
+
+  async changeUserRole(username, newRole) {
+    if (!this.store.data.users[username]) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    if (!['admin', 'visualizador'].includes(newRole)) {
+      throw new Error('Rol inválido');
+    }
+
+    this.store.data.users[username].role = newRole;
+    await this.store.save();
+    
+    console.log(`   🔄 Rol de ${username} cambiado a: ${newRole}`);
+    
+    return { username, role: newRole };
+  }
+
+  async changePassword(username, newPassword) {
+    if (!this.store.data.users[username]) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    if (newPassword.length < 6) {
+      throw new Error('La contraseña debe tener al menos 6 caracteres');
+    }
+
+    this.store.data.users[username].password = this.hashPassword(newPassword);
+    await this.store.save();
+    
+    console.log(`   🔑 Contraseña actualizada para: ${username}`);
   }
 }
 

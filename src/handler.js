@@ -150,6 +150,7 @@ class Handler {
   async executeCommand({ chatId, senderPhone, senderName, cmd, args, isOwner }) {
     if (cmd === '/cancelar') {
       this.store.setSession(`reg:${senderPhone}`, null);
+      this.store.setSession(`loc:${senderPhone}`, null);
       await this.store.save();
       return 'Operación cancelada.';
     }
@@ -211,8 +212,11 @@ class Handler {
     if (!args) return 'Envía /ticket descripción del problema o solicitud.';
 
     const intent = await detectIntent(args, { employee, activeTicket: null });
-
     const location = detectLocation(args);
+
+    if (!location) {
+      return 'Necesito saber la ubicación. ¿Dónde exactamente es el problema?';
+    }
 
     const ticket = createTicket({
       store: this.store,
@@ -232,10 +236,10 @@ class Handler {
     await this.store.save();
 
     return [
-      `🎫 ${ticketTag(ticket.id)} creado.`,
+      `🎫 ${ticket.ticketId} creado.`,
       this.formatTicketLine(ticket),
       '',
-      `Puedes enviar aclaraciones con ${ticketTag(ticket.id)} o seguir escribiendo durante ${Math.round(config.activeTicketTtlMs / 60000)} minutos.`
+      `Puedes enviar aclaraciones o seguir escribiendo durante ${Math.round(config.activeTicketTtlMs / 60000)} minutos.`
     ].join('\n');
   }
 
@@ -263,8 +267,8 @@ class Handler {
     }
 
     const ticket = this.store.getTicket(ticketId);
-    if (!ticket) return `No encontré el ticket ${ticketTag(ticketId)}.`;
-    if (ticket.status === 'cerrada') return `${ticketTag(ticket.id)} está cerrado.`;
+    if (!ticket) return `No encontré el ticket ${ticket.ticketId || `T-${ticketId}`}.`;
+    if (ticket.status === 'cerrada') return `${ticket.ticketId || `T-${ticket.id}`} está cerrado.`;
 
     appendUpdate({
       store: this.store,
@@ -280,7 +284,7 @@ class Handler {
     });
 
     await this.store.save();
-    return `✅ ${ticketTag(ticket.id)} asignado a ${assignedPhone}.\nEstado: en_progreso.`;
+    return `✅ ${ticket.ticketId || `T-${ticket.id}`} asignado a ${assignedPhone}.\nEstado: en_progreso.`;
   }
 
   async cmdClose({ args, senderPhone, senderName }) {
@@ -290,7 +294,7 @@ class Handler {
     if (!ticketId) return 'Uso: /cerrar #T-123';
 
     const ticket = this.store.getTicket(ticketId);
-    if (!ticket) return `No encontré el ticket ${ticketTag(ticketId)}.`;
+    if (!ticket) return `No encontré el ticket ${ticket.ticketId || `T-${ticketId}`}.`;
 
     const canClose =
       config.isOwner(senderPhone) ||
@@ -298,7 +302,7 @@ class Handler {
       ticket.assignedTo === senderPhone;
 
     if (!canClose) return 'No tienes permiso para cerrar este ticket.';
-    if (ticket.status === 'cerrada') return `${ticketTag(ticket.id)} ya está cerrado.`;
+    if (ticket.status === 'cerrada') return `${ticket.ticketId || `T-${ticket.id}`} ya está cerrado.`;
 
     appendUpdate({
       store: this.store,
@@ -310,7 +314,7 @@ class Handler {
     });
 
     await this.store.save();
-    return `✅ ${ticketTag(ticket.id)} cerrado.`;
+    return `✅ ${ticket.ticketId || `T-${ticket.id}`} cerrado.`;
   }
 
   async cmdOwner({ args }) {
@@ -382,7 +386,7 @@ class Handler {
     return 'Comando owner no reconocido.';
   }
 
-  async processAndRespond({ chatId, senderPhone, senderName, text, isGroup }) {
+    async processAndRespond({ chatId, senderPhone, senderName, text, isGroup }) {
     const historyKey = `${chatId}:${senderPhone}`;
     const history = this.getHistory(historyKey);
 
@@ -390,22 +394,39 @@ class Handler {
     const activeTicketId = this.store.getActiveTicket(historyKey);
     const activeTicket = activeTicketId ? this.store.getTicket(activeTicketId) : null;
 
-    const sessionKey = `reg:${senderPhone}`;
-    const session = this.store.getSession(sessionKey);
+    // Verificar sesión de registro
+    const regSessionKey = `reg:${senderPhone}`;
+    const regSession = this.store.getSession(regSessionKey);
     
-    if (session && session.step) {
+    if (regSession && regSession.step) {
       const response = await this.handleRegistrationFlow({
         chatId,
         senderPhone,
         senderName,
         text,
-        session,
+        session: regSession,
         history
       });
       return response;
     }
 
+    // Verificar sesión de ubicación
+    const locSessionKey = `loc:${senderPhone}`;
+    const locSession = this.store.getSession(locSessionKey);
+    
+    if (locSession && locSession.step === 'pedir_ubicacion') {
+      const response = await this.handleLocationFlow({
+        chatId,
+        senderPhone,
+        senderName,
+        text,
+        session: locSession
+      });
+      return response;
+    }
+
     console.log(`   🧠 Detectando intención con IA...`);
+
     const intent = await detectIntent(text, {
       employee,
       activeTicket,
@@ -429,6 +450,33 @@ class Handler {
       employee,
       activeTicket
     });
+
+    // GUARDAR MENSAJE en el ticket correcto DESPUÉS de ejecutar la intención
+    if (ticket && ticket.status !== 'cerrada') {
+      console.log(`   💾 Guardando mensaje en ticket ${ticket.ticketId || `T-${ticket.id}`}...`);
+      
+      // Solo agregar si no es un nuevo ticket (ya se agregó en createTicket)
+      if (intent.intencion !== 'crear_ticket') {
+        appendUpdate({
+          store: this.store,
+          ticket,
+          fromPhone: senderPhone,
+          fromName: senderName,
+          text,
+          changes: { kind: intent.intencion === 'aclaracion_automatica' ? 'aclaracion' : 'mensaje' }
+        });
+      }
+      
+      this.store.setActiveTicket(
+        historyKey,
+        ticket.id,
+        new Date(Date.now() + config.activeTicketTtlMs).toISOString()
+      );
+      
+      this.store.save().catch(err => {
+        console.error(`   ❌ Error guardando: ${err.message}`);
+      });
+    }
 
     if (response) {
       this.addToHistory(historyKey, 'bot', response);
@@ -500,7 +548,8 @@ class Handler {
         this.store.setSession(sessionKey, { step: 'pedir_area', data });
         await this.store.save();
 
-        return getRandomResponse('pedir_area');
+        const firstName = data.nombre.split(' ')[0];
+        return getRandomResponse('pedir_area', { nombre: firstName });
       }
 
       case 'pedir_area': {
@@ -549,6 +598,61 @@ class Handler {
         await this.store.save();
         return 'Algo salió mal. Empecemos de nuevo. ¿Cómo te llamas?';
     }
+  }
+
+  async handleLocationFlow({ chatId, senderPhone, senderName, text, session }) {
+    const sessionKey = `loc:${senderPhone}`;
+    const data = session.data || {};
+
+    console.log(`   📍 Flujo de ubicación`);
+
+    const location = text.trim();
+    
+    if (location.length < 2) {
+      return 'No entendí la ubicación. ¿Puedes ser más específico?';
+    }
+
+    // Crear el ticket con la ubicación
+    const ticket = createTicket({
+      store: this.store,
+      chatId,
+      senderPhone,
+      senderName,
+      classification: {
+        area: data.area,
+        urgencia: data.urgencia,
+        titulo: data.titulo,
+        descripcion: data.descripcion,
+        location
+      },
+      originalText: data.descripcion
+    });
+
+    const assignee = autoAssignAndNotify({
+      store: this.store,
+      ticket,
+      sendText: this.sendText,
+      logger: this.logger,
+      delayMs: 10 * 60 * 1000
+    });
+
+    this.store.setSession(sessionKey, null);
+    await this.store.save();
+
+    console.log(`   🎫 Ticket creado: ${ticket.ticketId} en ${location}`);
+
+    const responses = [
+      'Entendido, lo voy a revisar y te aviso.',
+      'Ok, ya lo tengo registrado. Te aviso cuando tenga novedades.',
+      'Perfecto, lo estamos viendo. Te mantengo informado.',
+      'Listo, ya lo anoté. Te aviso apenas tenga respuesta.',
+      'Entendido, lo revisamos y te contamos.',
+      'Ok, ya está registrado. Te aviso cuando haya avances.',
+      'Perfecto, lo tenemos en seguimiento.',
+      'Listo, ya lo estamos viendo. Te aviso pronto.'
+    ];
+
+    return responses[Math.floor(Math.random() * responses.length)];
   }
 
   extractArea(text) {
@@ -638,7 +742,7 @@ class Handler {
         });
 
         await this.store.save();
-        console.log(`   ✅ Ticket #T-${ticket.id} resuelto por ${senderName}`);
+        console.log(`   ✅ Ticket ${ticket.ticketId || `T-${ticket.id}`} resuelto por ${senderName}`);
 
         const responses = [
           'Perfecto, marco el ticket como resuelto. ¡Buen trabajo!',
@@ -692,29 +796,26 @@ class Handler {
           console.log(`   📍 Ubicación guardada: ${location}`);
         }
 
-        appendUpdate({
-          store: this.store,
-          ticket,
-          fromPhone: senderPhone,
-          fromName: senderName,
-          text,
-          changes: { kind: 'aclaracion' }
-        });
+        const lastMessage = ticket.messages[ticket.messages.length - 1];
+        if (lastMessage && lastMessage.kind === 'mensaje_pendiente') {
+          lastMessage.kind = 'aclaracion';
+        }
 
         await this.store.save();
-        console.log(`   📝 Aclaración agregada al ticket #T-${ticket.id}`);
+        console.log(`   📝 Aclaración agregada al ticket ${ticket.ticketId || `T-${ticket.id}`}`);
         
         const responses = [
           'Anotado, lo agrego al ticket.',
           'Ok, tomé nota.',
           'Perfecto, actualicé el ticket.',
-          'Listo, agregado al ticket.'
+          'Listo, agregado al ticket.',
+          'Entendido, lo tengo registrado.'
         ];
         response = responses[Math.floor(Math.random() * responses.length)];
         break;
       }
 
-      case 'crear_ticket': {
+            case 'crear_ticket': {
         if (!employee) {
           const sessionKey = `reg:${senderPhone}`;
           this.store.setSession(sessionKey, { 
@@ -731,6 +832,30 @@ class Handler {
         const area = intent.area || 'soporte';
         const urgencia = intent.urgencia || 'media';
         const location = detectLocation(text);
+
+        // SIEMPRE preguntar ubicación si no se detecta
+        if (!location) {
+          const sessionKey = `loc:${senderPhone}`;
+          this.store.setSession(sessionKey, { 
+            step: 'pedir_ubicacion', 
+            data: {
+              area,
+              urgencia,
+              titulo: intent.titulo || text.slice(0, 120),
+              descripcion: intent.descripcion || text
+            }
+          });
+          await this.store.save();
+          
+          const locationQuestions = [
+            '¿En qué lugar específico es el problema? (Ej: piso 2, área de cajas)',
+            '¿Me puedes decir la ubicación exacta? (Ej: oficina de contabilidad, piso 3)',
+            '¿Dónde exactamente ocurre el problema?',
+            '¿En qué área o piso es el problema?'
+          ];
+          response = locationQuestions[Math.floor(Math.random() * locationQuestions.length)];
+          break;
+        }
 
         ticket = createTicket({
           store: this.store,
@@ -752,11 +877,11 @@ class Handler {
           ticket,
           sendText: this.sendText,
           logger: this.logger,
-          delayMs: 10 * 60 * 1000
+          delayMs: 0 // Envío INMEDIATO
         });
 
         await this.store.save();
-        console.log(`   🎫 Ticket creado: #T-${ticket.id}`);
+        console.log(`   🎫 Ticket creado: ${ticket.ticketId}`);
 
         const responses = [
           'Entendido, lo voy a revisar y te aviso.',
@@ -790,19 +915,19 @@ class Handler {
 
         ticket = this.store.getTicket(targetId);
         if (!ticket) {
-          response = `No encontré el ticket #T-${targetId}. ¿Puedes verificar el número?`;
+          response = `No encontré el ticket ${targetId}. ¿Puedes verificar el número?`;
           break;
         }
 
         if (ticket.status === 'cerrada') {
-          response = `El ticket #T-${ticket.id} está cerrado. Si necesitas ayuda con otro tema, descríbeme el problema.`;
+          response = `El ticket ${ticket.ticketId || `T-${ticket.id}`} está cerrado. Si necesitas ayuda con otro tema, descríbeme el problema.`;
           break;
         }
 
         const genericMessages = /^(actualizar|agregar|añadir|informar|comentar|el\s+ticket|mi\s+ticket|ticket\s+(anterior|activo|actual|este))$/i;
         
         if (genericMessages.test(text.trim()) || text.length < 20) {
-          response = `Perfecto, veo que tienes el ticket #T-${ticket.id} sobre "${ticket.title}". ¿Qué información quieres agregar o qué problema tienes?`;
+          response = `Perfecto, veo que tienes el ticket ${ticket.ticketId || `T-${ticket.id}`} sobre "${ticket.title}". ¿Qué información quieres agregar o qué problema tienes?`;
           break;
         }
 
@@ -828,7 +953,7 @@ class Handler {
         );
 
         await this.store.save();
-        console.log(`   📝 Ticket actualizado: #T-${ticket.id}`);
+        console.log(`   📝 Ticket actualizado: ${ticket.ticketId || `T-${ticket.id}`}`);
         
         const updateResponses = [
           'Listo, tomé nota y lo agrego al ticket.',
@@ -849,7 +974,8 @@ class Handler {
   }
 
   formatTicketLine(ticket) {
-    return `${ticketTag(ticket.id)} [${ticket.priorityLevel || 'media'} ${ticket.score ?? 0}/100] ${ticket.area} - ${truncate(ticket.title, 70)}`;
+    const ticketId = ticket.ticketId || `T-${ticket.id}`;
+    return `${ticketId} [${ticket.priorityLevel || 'media'} ${ticket.score ?? 0}/100] ${ticket.area} - ${truncate(ticket.title, 70)}`;
   }
 
   helpText() {
@@ -864,7 +990,6 @@ class Handler {
       '💬 También puedes escribirme naturalmente:',
       '• "Hola" → te saludo y pido tus datos',
       '• "No puedo acceder al correo" → crea ticket automáticamente',
-      '• "#T-101 sigue fallando" → actualiza ticket',
       '• "Ya arreglamos el problema" → cierra el ticket automáticamente',
       '• "Estoy trabajando en eso" → cambia tu estado a trabajando',
       '',
