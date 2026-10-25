@@ -5,147 +5,94 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Usuarios - CONATEL</title>
   <link rel="stylesheet" href="/css/theme.css" />
-  <style>
-    .modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(4px);
-      z-index: 50;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .modal.active {
-      display: flex;
-    }
-    
-    .modal-content {
-      background: var(--bg-secondary);
-      border-radius: 12px;
-      width: 100%;
-      max-width: 500px;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-lg);
-    }
-    
-    .modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .modal-body {
-      padding: 24px;
-    }
-    
-    .form-group {
-      margin-bottom: 16px;
-    }
-    
-    .form-group label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 6px;
-      color: var(--text-secondary);
-    }
-  </style>
 </head>
 <body>
   <nav class="nav">
     <div class="nav-left">
+      <button class="menu-toggle" onclick="toggleMenu()">☰</button>
       <div class="nav-logo">C</div>
       <div class="nav-title">
-        <h1>CONATEL Panel</h1>
-        <p>Sistema de Gestión de Tickets</p>
+        <h1>CONATEL</h1>
+        <p>Sistema de Tickets</p>
       </div>
     </div>
-    <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="tickets.html">Tickets</a>
-      <a href="resolved.html">Resueltos</a>
-      <a href="employees.html">Empleados</a>
-      <a href="messages.html">Mensajes</a>
-      <a href="settings.html">Config</a>
-      <a href="users.html" class="active">Usuarios</a>
+    <div class="nav-links" id="navLinks">
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html">Tickets</a>
+      <a href="/resolved.html">Resueltos</a>
+      <a href="/employees.html">Empleados</a>
+      <a href="/messages.html">Mensajes</a>
+      <a href="/whatsapp.html">WhatsApp</a>
+      <a href="/connection.html">Conexión</a>
+      <a href="/database.html" id="dbLink">Base de datos</a>
+      <a href="/settings.html" id="settingsLink">Config</a>
+      <a href="/users.html" class="active">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
       <div class="user-info">
         <span id="userName">Usuario</span>
-        <span id="userRole" class="badge badge-info"></span>
+        <span id="userRole" class="badge badge-primary"></span>
       </div>
-      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+      <button class="logout-btn" onclick="logout()">Salir</button>
     </div>
   </nav>
 
   <main>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-      <h2 style="font-size: 28px; font-weight: 600;">Gestión de Usuarios</h2>
-      <button class="btn btn-primary" onclick="openForm()">+ Nuevo Usuario</button>
+    <div class="flex items-center justify-between mb-3 flex-col" style="align-items: flex-start;">
+      <h2 style="font-size: 28px; font-weight: 700;">Usuarios del Panel</h2>
+      <button class="btn btn-primary" onclick="openModal()">+ Nuevo Usuario</button>
     </div>
 
     <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>Usuario</th>
-            <th>Nombre</th>
-            <th>Rol</th>
-            <th>Creado el</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="usersTableBody">
-          <tr><td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Usuario</th>
+              <th>Nombre</th>
+              <th>Rol</th>
+              <th>Creado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="5" class="loading"><div class="spinner"></div> Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </main>
 
-  <!-- Modal de Formulario -->
+  <!-- Modal -->
   <div id="modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 style="font-size: 20px; font-weight: 600;">Nuevo Usuario</h3>
-        <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">✕</button>
+        <h3>Nuevo Usuario</h3>
+        <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
-      
       <div class="modal-body">
         <form id="userForm">
-          <div class="form-group">
-            <label>Nombre de Usuario</label>
-            <input type="text" id="fUsername" required />
+          <div class="mb-2">
+            <label>Nombre completo</label>
+            <input type="text" id="fName" required placeholder="Juan Pérez" />
           </div>
-          
-          <div class="form-group">
-            <label>Nombre Completo</label>
-            <input type="text" id="fName" required />
+          <div class="mb-2">
+            <label>Usuario</label>
+            <input type="text" id="fUsername" required placeholder="juanperez" />
           </div>
-          
-          <div class="form-group">
-            <label>Contraseña</label>
-            <input type="password" id="fPassword" required minlength="6" />
-            <small style="display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted);">Mínimo 6 caracteres</small>
+          <div class="mb-2">
+            <label>Contraseña (mín. 6 caracteres)</label>
+            <input type="password" id="fPassword" required placeholder="••••••••" />
           </div>
-          
-          <div class="form-group">
+          <div class="mb-2">
             <label>Rol</label>
             <select id="fRole" required>
-              <option value="admin">Administrador</option>
               <option value="visualizador">Visualizador</option>
+              <option value="admin">Administrador</option>
             </select>
-            <small style="display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted);">
-              Admin: Gestión completa | Visualizador: Solo ver tickets y empleados
-            </small>
           </div>
-          
-          <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 8px;">Crear Usuario</button>
+          <button type="submit" class="btn btn-primary" style="width: 100%;">Crear Usuario</button>
         </form>
       </div>
     </div>
@@ -154,7 +101,6 @@
   <script>
     let currentUser = null;
 
-    // Verificar autenticación
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -164,90 +110,76 @@
         currentUser = user;
         document.getElementById('userName').textContent = user.name;
         document.getElementById('userRole').textContent = user.role;
-        
         if (user.role !== 'admin') {
-          document.body.innerHTML = '<div style="text-align: center; padding: 100px; color: var(--text-muted);">No tienes permisos para acceder a esta página</div>';
+          document.getElementById('settingsLink').style.display = 'none';
+          document.getElementById('dbLink').style.display = 'none';
+          document.body.innerHTML = '<div style="text-align: center; padding: 100px;">Sin permisos</div>';
           return;
         }
-        
         loadUsers();
       })
-      .catch(() => {
-        window.location.href = '/login.html';
-      });
+      .catch(() => { window.location.href = '/login.html'; });
 
-    // Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
-
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login.html';
+    }
+    function toggleMenu() {
+      document.getElementById('navLinks').classList.toggle('open');
     }
 
     async function loadUsers() {
       try {
         const res = await fetch('/api/users');
         const users = await res.json();
-
+        
         const tbody = document.getElementById('usersTableBody');
-        tbody.innerHTML = users.map(u => {
-          const roleBadge = u.role === 'admin' ? 'badge-error' : 'badge-info';
-          const roleName = u.role === 'admin' ? 'Administrador' : 'Visualizador';
-          const canDelete = u.username !== 'admin' && u.username !== currentUser.username;
-          
-          return `
-            <tr>
-              <td style="font-family: monospace;">${u.username}</td>
-              <td>${u.name}</td>
-              <td><span class="badge ${roleBadge}">${roleName}</span></td>
-              <td style="font-size: 13px; color: var(--text-muted);">${new Date(u.createdAt).toLocaleDateString()}</td>
-              <td>
-                ${canDelete ? `<button class="btn btn-danger" onclick="deleteUser('${u.username}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>` : '<span style="color: var(--text-muted);">-</span>'}
-              </td>
-            </tr>
-          `;
-        }).join('');
+        if (users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No hay usuarios</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = users.map(u => `
+          <tr>
+            <td><strong>${u.username}</strong></td>
+            <td>${u.name}</td>
+            <td><span class="badge badge-${u.role === 'admin' ? 'error' : 'info'}">${u.role}</span></td>
+            <td style="font-size: 13px;">${new Date(u.createdAt).toLocaleDateString('es')}</td>
+            <td>
+              ${u.username !== 'admin' ? `
+                <button class="btn btn-danger" onclick="deleteUser('${u.username}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
+              ` : '<span class="text-muted">Protegido</span>'}
+            </td>
+          </tr>
+        `).join('');
       } catch (error) {
         console.error('Error:', error);
       }
     }
 
-    function openForm() {
+    function openModal() {
       document.getElementById('userForm').reset();
       document.getElementById('modal').classList.add('active');
     }
 
-    async function deleteUser(username) {
-      if (!confirm(`¿Eliminar usuario "${username}"?`)) return;
-
-      try {
-        const res = await fetch(`/api/users/${username}`, { method: 'DELETE' });
-        
-        if (res.ok) {
-          loadUsers();
-        } else {
-          const data = await res.json();
-          alert('Error: ' + (data.error || 'Desconocido'));
-        }
-      } catch (error) {
-        alert('Error de red');
-      }
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
     }
 
     document.getElementById('userForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-
+      
       const data = {
-        username: document.getElementById('fUsername').value,
         name: document.getElementById('fName').value,
+        username: document.getElementById('fUsername').value,
         password: document.getElementById('fPassword').value,
         role: document.getElementById('fRole').value
       };
@@ -258,21 +190,34 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data)
         });
-
+        
         if (res.ok) {
           closeModal();
           loadUsers();
+          alert('✓ Usuario creado');
         } else {
-          const errorData = await res.json();
-          alert('Error: ' + (errorData.error || 'Desconocido'));
+          const err = await res.json();
+          alert('Error: ' + (err.error || 'Desconocido'));
         }
-      } catch (error) {
+      } catch {
         alert('Error de red');
       }
     });
 
-    function closeModal() {
-      document.getElementById('modal').classList.remove('active');
+    async function deleteUser(username) {
+      if (!confirm(`¿Eliminar usuario "${username}"?`)) return;
+      
+      try {
+        const res = await fetch(`/api/users/${username}`, { method: 'DELETE' });
+        if (res.ok) {
+          loadUsers();
+        } else {
+          const err = await res.json();
+          alert('Error: ' + (err.error || 'Desconocido'));
+        }
+      } catch {
+        alert('Error de red');
+      }
     }
 
     document.getElementById('modal').addEventListener('click', (e) => {

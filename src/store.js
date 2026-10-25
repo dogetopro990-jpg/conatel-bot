@@ -1,181 +1,298 @@
-const fs = require('fs/promises');
-const path = require('path');
+const SQLStore = require('./database');
 const { nowISO } = require('./utils');
 
-function defaultData() {
-  return {
-    employees: {},
-    tickets: {},
-    sessions: {},
-    activeTickets: {},
-    settings: {
-      autoAlerts: true,
-      priorityThreshold: 70,
-      areaNotifications: {
-        soporte: true,
-        infraestructura: true,
-        desarrollo: true
-      }
-    },
-    counters: {
-      ticket: 100
-    }
-  };
-}
-
 class Store {
-  constructor(file) {
-    this.file = path.resolve(file);
-    this.data = defaultData();
-  }
-
-  async load() {
-    try {
-      const raw = await fs.readFile(this.file, 'utf8');
-      const parsed = JSON.parse(raw);
-      const base = defaultData();
-
-      this.data = {
-        ...base,
-        ...parsed,
-        settings: {
-          ...base.settings,
-          ...(parsed.settings || {}),
-          areaNotifications: {
-            ...base.settings.areaNotifications,
-            ...(parsed.settings?.areaNotifications || {})
-          }
-        },
-        counters: {
-          ...base.counters,
-          ...(parsed.counters || {})
-        }
-      };
-    } catch {
-      await this.save();
-    }
-  }
-
-  async save() {
-    await fs.mkdir(path.dirname(this.file), { recursive: true });
-    await fs.writeFile(this.file, JSON.stringify(this.data, null, 2), 'utf8');
-  }
-
-  upsertEmployee(phone, employee) {
-    this.data.employees[phone] = {
-      ...this.data.employees[phone],
-      ...employee,
-      phone,
-      updatedAt: nowISO()
+  constructor(dbPath) {
+    this.sql = new SQLStore(dbPath);
+    
+    // Cache en memoria para acceso rápido (se sincroniza con SQLite)
+    this._cache = {
+      users: null,
+      employees: null,
+      tickets: null,
+      settings: null,
+      activeTickets: null,
+      sessions: null
     };
-
-    return this.data.employees[phone];
+    
+    this._loadCache();
+    console.log('📦 Store inicializado (SQLite + cache en memoria)');
   }
+
+  _loadCache() {
+    // Cargar todo en memoria al inicio
+    const users = this.sql.getUsers();
+    this._cache.users = {};
+    for (const u of users) {
+      this._cache.users[u.username] = {
+        username: u.username,
+        password: u.password,
+        name: u.name,
+        role: u.role,
+        createdAt: u.created_at
+      };
+    }
+
+    const employees = this.sql.getEmployees();
+    this._cache.employees = {};
+    for (const e of employees) {
+      this._cache.employees[e.phone] = {
+        phone: e.phone,
+        name: e.name,
+        area: e.area,
+        role: e.role,
+        notificationsEnabled: e.notificationsEnabled,
+        registeredAt: e.registered_at
+      };
+    }
+
+    const tickets = this.sql.getAllTickets();
+    this._cache.tickets = {};
+    for (const t of tickets) {
+      this._cache.tickets[String(t.id)] = {
+        id: t.id,
+        ticketId: t.ticket_id,
+        chatId: t.chat_id,
+        requesterPhone: t.requester_phone,
+        requesterName: t.requester_name,
+        title: t.title,
+        description: t.description,
+        area: t.area,
+        urgency: t.urgency,
+        location: t.location,
+        status: t.status,
+        assignedTo: t.assigned_to,
+        priorityLevel: t.priority_level,
+        score: t.score,
+        manualPriority: t.manual_priority === 1,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        messages: t.messages || []
+      };
+    }
+
+    this._cache.settings = this.sql.getSettings();
+    
+    // Active tickets y sessions se cargan bajo demanda
+    this._cache.activeTickets = {};
+    this._cache.sessions = {};
+  }
+
+  // Propiedad `data` para compatibilidad con código existente
+  get data() {
+    return {
+      users: this._cache.users,
+      employees: this._cache.employees,
+      tickets: this._cache.tickets,
+      settings: this._cache.settings,
+      activeTickets: this._cache.activeTickets,
+      sessions: this._cache.sessions
+    };
+  }
+
+  // ============================================================
+  // USERS
+  // ============================================================
+
+  upsertUser(user) {
+    this.sql.upsertUser(user);
+    this._cache.users[user.username] = {
+      username: user.username,
+      password: user.password,
+      name: user.name,
+      role: user.role,
+      createdAt: user.createdAt
+    };
+  }
+
+  deleteUser(username) {
+    this.sql.deleteUser(username);
+    delete this._cache.users[username];
+  }
+
+  // ============================================================
+  // EMPLOYEES
+  // ============================================================
 
   getEmployee(phone) {
-    return this.data.employees[phone] || null;
+    return this._cache.employees[phone] || null;
   }
 
-  setSession(key, value) {
-    if (value === null || value === undefined) {
-      delete this.data.sessions[key];
-    } else {
-      this.data.sessions[key] = value;
-    }
-
-    return value;
-  }
-
-  getSession(key) {
-    return this.data.sessions[key] || null;
-  }
-
-  setActiveTicket(key, ticketId, expiresAt) {
-    if (!ticketId) {
-      delete this.data.activeTickets[key];
-    } else {
-      this.data.activeTickets[key] = {
-        ticketId,
-        expiresAt
-      };
-    }
-
-    return this.data.activeTickets[key];
-  }
-
-  getActiveTicket(key) {
-    const item = this.data.activeTickets[key];
-    if (!item) return null;
-
-    if (new Date(item.expiresAt).getTime() < Date.now()) {
-      delete this.data.activeTickets[key];
-      return null;
-    }
-
-    return item.ticketId;
-  }
-
-  createTicket(payload) {
-    this.data.counters.ticket += 1;
-    const id = this.data.counters.ticket;
-
-    const ticket = {
-      id,
-      status: 'abierta',
-      messages: [],
-      createdAt: nowISO(),
-      updatedAt: nowISO(),
-      lastAlertAt: null,
-      score: 0,
-      priorityLevel: 'media',
-      ...payload
+  upsertEmployee(phone, data) {
+    this.sql.upsertEmployee(phone, data);
+    this._cache.employees[phone] = {
+      phone,
+      name: data.name,
+      area: data.area,
+      role: data.role,
+      notificationsEnabled: data.notificationsEnabled !== false,
+      registeredAt: data.registeredAt || nowISO()
     };
-
-    this.data.tickets[String(id)] = ticket;
-    return ticket;
   }
+
+  deleteEmployee(phone) {
+    this.sql.deleteEmployee(phone);
+    delete this._cache.employees[phone];
+  }
+
+  // ============================================================
+  // TICKETS
+  // ============================================================
 
   getTicket(id) {
-    return this.data.tickets[String(id)] || null;
+    return this._cache.tickets[String(id)] || null;
   }
 
-  updateTicket(id, patch) {
-    const ticket = this.getTicket(id);
-    if (!ticket) return null;
-
-    Object.assign(ticket, patch, {
-      updatedAt: nowISO()
-    });
-
-    return ticket;
+  createTicket(ticket) {
+    const created = this.sql.createTicket(ticket);
+    this._cache.tickets[String(created.id)] = {
+      ...created,
+      manualPriority: created.manual_priority === 1
+    };
+    return this._cache.tickets[String(created.id)];
   }
 
-  addTicketMessage(id, message) {
-    const ticket = this.getTicket(id);
-    if (!ticket) return null;
+  updateTicket(id, changes) {
+    const updated = this.sql.updateTicket(id, changes);
+    if (updated) {
+      this._cache.tickets[String(id)] = {
+        ...updated,
+        manualPriority: updated.manual_priority === 1
+      };
+    }
+    return this._cache.tickets[String(id)];
+  }
 
-    ticket.messages.push({
-      ...message,
-      at: nowISO()
-    });
-
-    ticket.updatedAt = nowISO();
-    return ticket;
+  deleteTicket(id) {
+    this.sql.deleteTicket(id);
+    delete this._cache.tickets[String(id)];
   }
 
   listOpenTickets() {
-    return Object.values(this.data.tickets).filter((ticket) =>
-      ['abierta', 'en_progreso'].includes(ticket.status)
+    return Object.values(this._cache.tickets).filter(
+      t => t.status === 'abierta' || t.status === 'en_progreso'
     );
   }
 
-  setSetting(key, value) {
-    this.data.settings[key] = value;
-    return this.data.settings;
+  renumberTickets() {
+    this.sql.renumberTickets();
+    // Recargar cache de tickets
+    const tickets = this.sql.getAllTickets();
+    this._cache.tickets = {};
+    for (const t of tickets) {
+      this._cache.tickets[String(t.id)] = {
+        id: t.id,
+        ticketId: t.ticket_id,
+        chatId: t.chat_id,
+        requesterPhone: t.requester_phone,
+        requesterName: t.requester_name,
+        title: t.title,
+        description: t.description,
+        area: t.area,
+        urgency: t.urgency,
+        location: t.location,
+        status: t.status,
+        assignedTo: t.assigned_to,
+        priorityLevel: t.priority_level,
+        score: t.score,
+        manualPriority: t.manual_priority === 1,
+        createdAt: t.created_at,
+        updatedAt: t.updated_at,
+        messages: t.messages || []
+      };
+    }
   }
 
+  // ============================================================
+  // ACTIVE TICKETS
+  // ============================================================
+
+  getActiveTicket(chatKey) {
+    const ticketId = this.sql.getActiveTicket(chatKey);
+    return ticketId;
+  }
+
+  setActiveTicket(chatKey, ticketId, expiresAt) {
+    this.sql.setActiveTicket(chatKey, ticketId, expiresAt);
+    this._cache.activeTickets[chatKey] = { ticketId, expiresAt };
+  }
+
+  // ============================================================
+  // SESSIONS
+  // ============================================================
+
+  getSession(key) {
+    return this.sql.getSession(key);
+  }
+
+  setSession(key, session) {
+    this.sql.setSession(key, session);
+    if (session) {
+      this._cache.sessions[key] = session;
+    } else {
+      delete this._cache.sessions[key];
+    }
+  }
+
+  // ============================================================
+  // SETTINGS
+  // ============================================================
+
   getSettings() {
-    return this.data.settings;
+    return this._cache.settings;
+  }
+
+  getSetting(key, defaultValue = null) {
+    return this._cache.settings[key] ?? defaultValue;
+  }
+
+  setSetting(key, value) {
+    this.sql.setSetting(key, value);
+    this._cache.settings[key] = value;
+  }
+
+  // ============================================================
+  // AREAS
+  // ============================================================
+
+  getCustomAreas() {
+    return this.sql.getCustomAreas();
+  }
+
+  addCustomArea(name) {
+    this.sql.addCustomArea(name);
+  }
+
+  removeCustomArea(name) {
+    this.sql.removeCustomArea(name);
+  }
+
+  // ============================================================
+  // UTILIDADES
+  // ============================================================
+
+  async save() {
+    // No-op: SQLite guarda automáticamente
+    // Mantenemos este método para compatibilidad
+    return Promise.resolve();
+  }
+
+  async load() {
+    // No-op: ya cargado en constructor
+    return Promise.resolve();
+  }
+
+  close() {
+    this.sql.close();
+  }
+
+  // Método para el explorador SQL del panel
+  executeQuery(sql, params = []) {
+    return this.sql.executeQuery(sql, params);
+  }
+
+  getSchema() {
+    return this.sql.getSchema();
   }
 }
 

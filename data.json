@@ -1,0 +1,53 @@
+{
+  "employees": {
+    "50432412123": {
+      "name": "Yunior Alejandro Vásquez Canales",
+      "area": "desarrollo",
+      "role": "Programador",
+      "registeredAt": "2026-10-19T20:26:47.007Z",
+      "phone": "50432412123",
+      "updatedAt": "2026-10-19T20:26:47.007Z"
+    }
+  },
+  "tickets": {},
+  "sessions": {
+    "reg:120363399381712466": {
+      "step": "datos",
+      "pendingRequest": "🤬 R4p0rt3n, ll4m3n y bl0qu33n a 3st3 número 👇🏻😡\n\nhttps://Wa.me//+525635397497\n\n‼️⚠️ 🤬 Ac4sad4r de niñ4s p4queñ4s 😡 ‼️",
+      "startedAt": "2026-10-12T17:42:32.982Z",
+      "partial": {
+        "name": "Banda",
+        "area": "",
+        "role": "wa.me/+5493455479718"
+      }
+    },
+    "reg:120363412078819711": {
+      "step": "datos",
+      "pendingRequest": "Sean serios mamones",
+      "startedAt": "2026-10-12T20:51:38.578Z"
+    },
+    "reg:120363401718068221": {
+      "step": "datos",
+      "pendingRequest": "Femboys , omegas , alfas  ,  tomboys aquí‼️🫦 .",
+      "startedAt": "2026-10-13T15:33:30.216Z"
+    }
+  },
+  "activeTickets": {
+    "273761836204183@lid:50432412123": {
+      "ticketId": 2,
+      "expiresAt": "2026-10-19T20:33:19.281Z"
+    }
+  },
+  "settings": {
+    "autoAlerts": true,
+    "priorityThreshold": 70,
+    "areaNotifications": {
+      "soporte": true,
+      "infraestructura": true,
+      "desarrollo": true
+    }
+  },
+  "counters": {
+    "ticket": 101
+  }
+}

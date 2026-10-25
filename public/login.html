@@ -4,457 +4,144 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Iniciar Sesión - CONATEL</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
-    :root {
-      --bg-primary: #f8fafc;
-      --bg-secondary: #ffffff;
-      --bg-tertiary: #f1f5f9;
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #94a3b8;
-      --border: #e2e8f0;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --error: #ef4444;
-      --success: #10b981;
-      --shadow: 0 1px 3px rgba(0,0,0,0.1);
-      --shadow-lg: 0 10px 25px rgba(0,0,0,0.1);
-    }
-    
-    [data-theme="dark"] {
-      --bg-primary: #0f172a;
-      --bg-secondary: #1e293b;
-      --bg-tertiary: #334155;
-      --text-primary: #f1f5f9;
-      --text-secondary: #cbd5e1;
-      --text-muted: #64748b;
-      --border: #334155;
-      --accent: #3b82f6;
-      --accent-hover: #2563eb;
-      --error: #ef4444;
-      --success: #10b981;
-      --shadow: 0 1px 3px rgba(0,0,0,0.3);
-      --shadow-lg: 0 10px 25px rgba(0,0,0,0.5);
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .login-container {
-      background: var(--bg-secondary);
-      border-radius: 12px;
-      box-shadow: var(--shadow-lg);
-      padding: 40px;
-      width: 100%;
-      max-width: 420px;
-      border: 1px solid var(--border);
-    }
-    
-    .logo {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    
-    .logo-icon {
-      width: 60px;
-      height: 60px;
-      background: var(--accent);
-      border-radius: 12px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 16px;
-    }
-    
-    .logo h1 {
-      font-size: 24px;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-    
-    .logo p {
-      color: var(--text-secondary);
-      font-size: 14px;
-    }
-    
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 24px;
-      background: var(--bg-tertiary);
-      padding: 4px;
-      border-radius: 8px;
-    }
-    
-    .tab {
-      flex: 1;
-      padding: 10px;
-      text-align: center;
-      cursor: pointer;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      transition: all 0.2s;
-      color: var(--text-secondary);
-    }
-    
-    .tab.active {
-      background: var(--bg-secondary);
-      color: var(--text-primary);
-      box-shadow: var(--shadow);
-    }
-    
-    .form-container {
-      display: none;
-    }
-    
-    .form-container.active {
-      display: block;
-    }
-    
-    .form-group {
-      margin-bottom: 20px;
-    }
-    
-    label {
-      display: block;
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 8px;
-      color: var(--text-secondary);
-    }
-    
-    input {
-      width: 100%;
-      padding: 12px 16px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg-tertiary);
-      color: var(--text-primary);
-      font-size: 14px;
-      transition: all 0.2s;
-    }
-    
-    input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-    
-    button {
-      width: 100%;
-      padding: 12px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    
-    button:hover {
-      background: var(--accent-hover);
-    }
-    
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    
-    .error {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: var(--error);
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 20px;
-      display: none;
-    }
-    
-    .success {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: var(--success);
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      margin-bottom: 20px;
-      display: none;
-    }
-    
-    [data-theme="dark"] .error {
-      background: rgba(239, 68, 68, 0.1);
-      border-color: rgba(239, 68, 68, 0.3);
-    }
-    
-    [data-theme="dark"] .success {
-      background: rgba(16, 185, 129, 0.1);
-      border-color: rgba(16, 185, 129, 0.3);
-    }
-    
-    .theme-toggle {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 8px 12px;
-      cursor: pointer;
-      font-size: 20px;
-      box-shadow: var(--shadow);
-    }
-    
-    .role-notice {
-      background: var(--bg-tertiary);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 20px;
-      font-size: 13px;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-    
-    .role-notice strong {
-      color: var(--text-primary);
-    }
-  </style>
+  <link rel="stylesheet" href="/css/theme.css" />
 </head>
-<body>
-  <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-  
-  <div class="login-container">
-    <div class="logo">
-      <div class="logo-icon">C</div>
-      <h1>CONATEL</h1>
-      <p>Sistema de Gestión de Tickets</p>
+<body class="login-container">
+  <div class="login-card">
+    <div class="login-logo">C</div>
+    <h1 class="login-title">CONATEL</h1>
+    <p class="login-subtitle">Sistema de Gestión de Tickets</p>
+
+    <div class="login-tabs">
+      <div class="login-tab active" onclick="switchTab('login')">Iniciar Sesión</div>
+      <div class="login-tab" onclick="switchTab('register')">Registrarse</div>
     </div>
-    
-    <!-- Tabs -->
-    <div class="tabs">
-      <div class="tab active" onclick="switchTab('login')">Iniciar Sesión</div>
-      <div class="tab" onclick="switchTab('register')">Registrarse</div>
-    </div>
-    
-    <!-- Mensajes -->
-    <div id="error" class="error"></div>
-    <div id="success" class="success"></div>
-    
-    <!-- Formulario de Login -->
-    <div id="loginForm" class="form-container active">
-      <form onsubmit="handleLogin(event)">
-        <div class="form-group">
-          <label for="loginUsername">Usuario</label>
-          <input type="text" id="loginUsername" required autocomplete="username" />
-        </div>
-        
-        <div class="form-group">
-          <label for="loginPassword">Contraseña</label>
-          <input type="password" id="loginPassword" required autocomplete="current-password" />
-        </div>
-        
-        <button type="submit" id="loginBtn">Iniciar Sesión</button>
-      </form>
-    </div>
-    
-    <!-- Formulario de Registro -->
-    <div id="registerForm" class="form-container">
-      <div class="role-notice">
-        <strong>Nota:</strong> Los usuarios registrados desde aquí tendrán rol de <strong>Visualizador</strong> (solo pueden ver tickets y empleados). Para obtener permisos de administrador, contacta al administrador del sistema.
+
+    <div id="loginForm">
+      <div class="mb-2">
+        <label>Usuario</label>
+        <input type="text" id="loginUsername" placeholder="admin" autocomplete="username" />
       </div>
-      
-      <form onsubmit="handleRegister(event)">
-        <div class="form-group">
-          <label for="regUsername">Nombre de Usuario</label>
-          <input type="text" id="regUsername" required minlength="3" autocomplete="username" />
-        </div>
-        
-        <div class="form-group">
-          <label for="regName">Nombre Completo</label>
-          <input type="text" id="regName" required autocomplete="name" />
-        </div>
-        
-        <div class="form-group">
-          <label for="regPassword">Contraseña</label>
-          <input type="password" id="regPassword" required minlength="6" autocomplete="new-password" />
-          <small style="display: block; margin-top: 4px; font-size: 12px; color: var(--text-muted);">Mínimo 6 caracteres</small>
-        </div>
-        
-        <div class="form-group">
-          <label for="regPasswordConfirm">Confirmar Contraseña</label>
-          <input type="password" id="regPasswordConfirm" required minlength="6" autocomplete="new-password" />
-        </div>
-        
-        <button type="submit" id="registerBtn">Crear Cuenta</button>
-      </form>
+      <div class="mb-2">
+        <label>Contraseña</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn btn-primary" onclick="doLogin()">Ingresar</button>
+    </div>
+
+    <div id="registerForm" style="display: none;">
+      <div class="mb-2">
+        <label>Nombre completo</label>
+        <input type="text" id="regName" placeholder="Juan Pérez" />
+      </div>
+      <div class="mb-2">
+        <label>Usuario</label>
+        <input type="text" id="regUsername" placeholder="juanperez" />
+      </div>
+      <div class="mb-2">
+        <label>Contraseña (mín. 6 caracteres)</label>
+        <input type="password" id="regPassword" placeholder="••••••••" />
+      </div>
+      <button class="btn btn-primary" onclick="doRegister()">Crear cuenta</button>
+    </div>
+
+    <div id="message" style="margin-top: 16px; text-align: center; font-size: 14px;"></div>
+
+    <div style="margin-top: 24px; text-align: center; font-size: 12px; color: var(--text-muted);">
+      <button class="theme-toggle" onclick="toggleTheme()" style="margin: 0 auto;">🌓 Cambiar tema</button>
     </div>
   </div>
 
   <script>
-    // Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    
+
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
-    
-    // Cambiar entre tabs
+
     function switchTab(tab) {
-      const tabs = document.querySelectorAll('.tab');
-      const forms = document.querySelectorAll('.form-container');
+      document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+      document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+      document.getElementById('message').innerHTML = '';
+    }
+
+    function showMessage(text, isError = false) {
+      document.getElementById('message').innerHTML = 
+        `<div class="alert alert-${isError ? 'error' : 'success'}">${text}</div>`;
+    }
+
+    async function doLogin() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
       
-      tabs.forEach(t => t.classList.remove('active'));
-      forms.forEach(f => f.classList.remove('active'));
-      
-      if (tab === 'login') {
-        tabs[0].classList.add('active');
-        document.getElementById('loginForm').classList.add('active');
-      } else {
-        tabs[1].classList.add('active');
-        document.getElementById('registerForm').classList.add('active');
+      if (!username || !password) {
+        showMessage('Completa todos los campos', true);
+        return;
       }
-      
-      // Limpiar mensajes
-      hideMessages();
-    }
-    
-    function showError(msg) {
-      const el = document.getElementById('error');
-      el.textContent = msg;
-      el.style.display = 'block';
-      document.getElementById('success').style.display = 'none';
-    }
-    
-    function showSuccess(msg) {
-      const el = document.getElementById('success');
-      el.textContent = msg;
-      el.style.display = 'block';
-      document.getElementById('error').style.display = 'none';
-    }
-    
-    function hideMessages() {
-      document.getElementById('error').style.display = 'none';
-      document.getElementById('success').style.display = 'none';
-    }
-    
-    // Verificar si ya está autenticado
-    fetch('/api/auth/me')
-      .then(res => res.json())
-      .then(data => {
-        if (data.username) {
-          window.location.href = '/index.html';
-        }
-      })
-      .catch(() => {});
-    
-    // Login
-    async function handleLogin(e) {
-      e.preventDefault();
-      
-      const submitBtn = document.getElementById('loginBtn');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Iniciando sesión...';
-      hideMessages();
-      
+
       try {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: document.getElementById('loginUsername').value,
-            password: document.getElementById('loginPassword').value
-          })
+          body: JSON.stringify({ username, password })
         });
-        
         const data = await res.json();
         
         if (res.ok) {
-          window.location.href = '/index.html';
+          showMessage('✓ Ingresando...');
+          setTimeout(() => window.location.href = '/index.html', 500);
         } else {
-          showError(data.error || 'Error al iniciar sesión');
+          showMessage(data.error || 'Credenciales inválidas', true);
         }
       } catch (error) {
-        showError('Error de conexión');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Iniciar Sesión';
+        showMessage('Error de conexión', true);
       }
     }
-    
-    // Registro
-    async function handleRegister(e) {
-      e.preventDefault();
-      
+
+    async function doRegister() {
+      const name = document.getElementById('regName').value.trim();
+      const username = document.getElementById('regUsername').value.trim();
       const password = document.getElementById('regPassword').value;
-      const passwordConfirm = document.getElementById('regPasswordConfirm').value;
       
-      if (password !== passwordConfirm) {
-        showError('Las contraseñas no coinciden');
+      if (!name || !username || !password) {
+        showMessage('Completa todos los campos', true);
         return;
       }
-      
-      const submitBtn = document.getElementById('registerBtn');
-      submitBtn.disabled = true;
-      submitBtn.textContent = 'Creando cuenta...';
-      hideMessages();
-      
+
       try {
         const res = await fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            username: document.getElementById('regUsername').value,
-            name: document.getElementById('regName').value,
-            password: password
-          })
+          body: JSON.stringify({ name, username, password })
         });
-        
         const data = await res.json();
         
         if (res.ok) {
-          showSuccess('✓ Cuenta creada exitosamente. Ahora puedes iniciar sesión.');
-          // Limpiar formulario
-          document.getElementById('regUsername').value = '';
-          document.getElementById('regName').value = '';
-          document.getElementById('regPassword').value = '';
-          document.getElementById('regPasswordConfirm').value = '';
-          
-          // Cambiar a tab de login después de 2 segundos
+          showMessage('✓ Cuenta creada. Ya puedes iniciar sesión.');
           setTimeout(() => {
-            switchTab('login');
-            document.getElementById('loginUsername').value = document.getElementById('regUsername').value || '';
-          }, 2000);
+            document.querySelector('.login-tab').click();
+          }, 1500);
         } else {
-          showError(data.error || 'Error al crear la cuenta');
+          showMessage(data.error || 'Error al crear cuenta', true);
         }
       } catch (error) {
-        showError('Error de conexión');
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Crear Cuenta';
+        showMessage('Error de conexión', true);
       }
     }
+
+    // Enter para enviar
+    document.getElementById('loginPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') doLogin();
+    });
+    document.getElementById('regPassword').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') doRegister();
+    });
   </script>
 </body>
 </html>

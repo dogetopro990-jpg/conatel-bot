@@ -3,216 +3,115 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Resueltos - CONATEL</title>
+  <title>Tickets Resueltos - CONATEL</title>
   <link rel="stylesheet" href="/css/theme.css" />
-  <style>
-    .modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(4px);
-      z-index: 50;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .modal.active {
-      display: flex;
-    }
-    
-    .modal-content {
-      background: var(--bg-secondary);
-      border-radius: 12px;
-      width: 100%;
-      max-width: 800px;
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow-lg);
-    }
-    
-    .modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .modal-body {
-      flex: 1;
-      overflow-y: auto;
-      padding: 24px;
-    }
-    
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    
-    .info-item {
-      background: var(--bg-tertiary);
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    
-    .info-label {
-      font-size: 12px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      margin-bottom: 4px;
-    }
-    
-    .info-value {
-      font-size: 14px;
-      font-weight: 500;
-    }
-    
-    .message-list {
-      max-height: 400px;
-      overflow-y: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      background: var(--bg-tertiary);
-    }
-    
-    .message-item {
-      margin-bottom: 12px;
-      padding: 12px;
-      background: var(--bg-secondary);
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-    
-    .message-header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 8px;
-      font-size: 12px;
-      color: var(--text-muted);
-    }
-    
-    .message-text {
-      font-size: 14px;
-      line-height: 1.5;
-    }
-  </style>
 </head>
 <body>
   <nav class="nav">
     <div class="nav-left">
+      <button class="menu-toggle" onclick="toggleMenu()">☰</button>
       <div class="nav-logo">C</div>
       <div class="nav-title">
-        <h1>CONATEL Panel</h1>
-        <p>Sistema de Gestión de Tickets</p>
+        <h1>CONATEL</h1>
+        <p>Sistema de Tickets</p>
       </div>
     </div>
-    <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="tickets.html">Tickets</a>
-      <a href="resolved.html" class="active">Resueltos</a>
-      <a href="employees.html">Empleados</a>
-      <a href="messages.html">Mensajes</a>
-      <a href="settings.html" id="settingsLink">Config</a>
-      <a href="users.html" id="usersLink">Usuarios</a>
+    <div class="nav-links" id="navLinks">
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html">Tickets</a>
+      <a href="/resolved.html" class="active">Resueltos</a>
+      <a href="/employees.html">Empleados</a>
+      <a href="/messages.html">Mensajes</a>
+      <a href="/whatsapp.html">WhatsApp</a>
+      <a href="/connection.html">Conexión</a>
+      <a href="/database.html" id="dbLink">Base de datos</a>
+      <a href="/settings.html" id="settingsLink">Config</a>
+      <a href="/users.html" id="usersLink">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
       <div class="user-info">
         <span id="userName">Usuario</span>
-        <span id="userRole" class="badge badge-info"></span>
+        <span id="userRole" class="badge badge-primary"></span>
       </div>
-      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+      <button class="logout-btn" onclick="logout()">Salir</button>
     </div>
   </nav>
 
   <main>
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-      <h2 style="font-size: 28px; font-weight: 600;">Tickets Resueltos <span id="ticketCount" class="badge badge-success">0</span></h2>
+    <div class="flex items-center justify-between mb-3 flex-col" style="align-items: flex-start;">
+      <h2 style="font-size: 28px; font-weight: 700;">Tickets Resueltos <span id="ticketCount" class="badge badge-success">0</span></h2>
       <button class="btn btn-secondary" onclick="loadData()">🔄 Actualizar</button>
     </div>
 
-    <div class="card" style="margin-bottom: 24px;">
-      <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-        <select id="filterArea" style="max-width: 200px;">
+    <!-- Filtros -->
+    <div class="card mb-3">
+      <div class="grid-3">
+        <select id="filterArea">
           <option value="">Todas las áreas</option>
         </select>
-        <input id="filterSearch" placeholder="Buscar..." style="flex: 1; min-width: 200px;" />
+        <input type="date" id="filterDate" />
+        <input id="filterSearch" placeholder="🔍 Buscar por ID, título o solicitante..." />
       </div>
     </div>
 
+    <!-- Tabla -->
     <div class="card">
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Título</th>
-            <th>Solicitante</th>
-            <th>Área</th>
-            <th>Asignado a</th>
-            <th>Resuelto el</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody id="ticketsTableBody">
-          <tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando...</td></tr>
-        </tbody>
-      </table>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Título</th>
+              <th>Solicitante</th>
+              <th>Área</th>
+              <th>Resuelto por</th>
+              <th>Fecha cierre</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="ticketsTableBody">
+            <tr><td colspan="7" class="loading"><div class="spinner"></div> Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </main>
 
-  <!-- Modal de Detalle -->
+  <!-- Modal de detalle -->
   <div id="modal" class="modal">
-    <div class="modal-content">
+    <div class="modal-content large">
       <div class="modal-header">
         <div>
-          <h3 id="modalTitle" style="font-size: 20px; font-weight: 600;">Ticket</h3>
-          <p id="modalSubtitle" style="font-size: 12px; color: var(--text-muted); margin-top: 4px;"></p>
+          <h3 id="modalTitle">Ticket</h3>
+          <p id="modalSubtitle" class="text-muted" style="font-size: 12px; margin-top: 4px;"></p>
         </div>
-        <button onclick="closeModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-muted);">✕</button>
+        <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
-      
       <div class="modal-body">
-        <div class="info-grid">
-          <div class="info-item">
-            <div class="info-label">Solicitante</div>
-            <div class="info-value" id="modalRequester"></div>
+        <div class="grid-3 mb-3">
+          <div class="card" style="padding: 12px;">
+            <div class="text-muted" style="font-size: 11px; text-transform: uppercase;">Solicitante</div>
+            <div id="modalRequester" style="font-weight: 600; margin-top: 4px;"></div>
           </div>
-          <div class="info-item">
-            <div class="info-label">Área</div>
-            <div class="info-value" id="modalArea"></div>
+          <div class="card" style="padding: 12px;">
+            <div class="text-muted" style="font-size: 11px; text-transform: uppercase;">Área</div>
+            <div id="modalArea" style="font-weight: 600; margin-top: 4px;"></div>
           </div>
-          <div class="info-item">
-            <div class="info-label">Asignado a</div>
-            <div class="info-value" id="modalAssignee"></div>
-          </div>
-          <div class="info-item">
-            <div class="info-label">Resuelto el</div>
-            <div class="info-value" id="modalResolvedAt"></div>
+          <div class="card" style="padding: 12px;">
+            <div class="text-muted" style="font-size: 11px; text-transform: uppercase;">Resuelto por</div>
+            <div id="modalAssignee" style="font-weight: 600; margin-top: 4px;"></div>
           </div>
         </div>
 
-        <div style="margin-bottom: 20px;">
-          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">Descripción</h4>
-          <p id="modalDescription" style="font-size: 14px; line-height: 1.6; color: var(--text-secondary);"></p>
+        <div class="card mb-3">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">📝 Descripción</h4>
+          <p id="modalDescription" style="font-size: 14px; line-height: 1.6; white-space: pre-wrap;"></p>
         </div>
 
-        <div style="margin-bottom: 20px;">
-          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 8px;">📝 Historial de Mensajes</h4>
-          <div id="messageList" class="message-list"></div>
-        </div>
-
-        <div id="adminControls" style="padding-top: 20px; border-top: 1px solid var(--border);">
-          <button class="btn btn-primary" onclick="reopenTicket()" style="width: 100%;">
-            🔄 Reabrir Ticket (Mover a Activos)
-          </button>
+        <div class="card">
+          <h4 style="font-size: 14px; font-weight: 600; margin-bottom: 12px;">💬 Historial del Ticket</h4>
+          <div style="max-height: 400px; overflow-y: auto; background: var(--bg-tertiary); border-radius: 8px; padding: 12px;" id="chatMessages"></div>
         </div>
       </div>
     </div>
@@ -223,9 +122,11 @@
     let allTickets = [];
     let allEmployees = [];
     let allAreas = [];
-    let currentTicketId = null;
+    let cacheTime = 0;
+    let cachedData = null;
+    const CACHE_DURATION = 30000;
 
-    // Verificar autenticación
+    // Auth
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -235,34 +136,39 @@
         currentUser = user;
         document.getElementById('userName').textContent = user.name;
         document.getElementById('userRole').textContent = user.role;
-        
         if (user.role !== 'admin') {
-          document.getElementById('settingsLink').style.display = 'none';
-          document.getElementById('usersLink').style.display = 'none';
-          document.getElementById('adminControls').style.display = 'none';
+          ['settingsLink', 'usersLink', 'dbLink'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+          });
         }
+        loadData();
       })
-      .catch(() => {
-        window.location.href = '/login.html';
-      });
+      .catch(() => { window.location.href = '/login.html'; });
 
-    // Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
-
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login.html';
     }
+    function toggleMenu() {
+      document.getElementById('navLinks').classList.toggle('open');
+    }
 
     async function loadData() {
+      const now = Date.now();
+      if (cachedData && (now - cacheTime) < CACHE_DURATION) {
+        renderTickets();
+        return;
+      }
+
       try {
         const [ticketsRes, empRes, areasRes] = await Promise.all([
           fetch('/api/tickets/resolved'),
@@ -274,51 +180,61 @@
         allEmployees = await empRes.json();
         allAreas = await areasRes.json();
 
-        // Actualizar filtro de áreas
         const areaFilter = document.getElementById('filterArea');
         const currentValue = areaFilter.value;
         areaFilter.innerHTML = '<option value="">Todas las áreas</option>' + 
           allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
         areaFilter.value = currentValue;
 
+        cachedData = { tickets: allTickets, employees: allEmployees, areas: allAreas };
+        cacheTime = now;
         renderTickets();
       } catch (error) {
         console.error('Error:', error);
+        document.getElementById('ticketsTableBody').innerHTML = 
+          `<tr><td colspan="7" class="text-error" style="padding: 40px;">Error al cargar datos</td></tr>`;
       }
     }
 
     function renderTickets() {
       const area = document.getElementById('filterArea').value;
+      const date = document.getElementById('filterDate').value;
       const search = document.getElementById('filterSearch').value.toLowerCase();
 
       let filtered = allTickets.filter(t => {
         if (area && t.area !== area) return false;
+        if (date) {
+          const ticketDate = new Date(t.updatedAt).toISOString().split('T')[0];
+          if (ticketDate !== date) return false;
+        }
         if (search) {
-          const s = `#T-${t.id} ${t.title} ${t.requesterName}`.toLowerCase();
+          const s = `${t.ticketId || `T-${t.id}`} ${t.title} ${t.requesterName}`.toLowerCase();
           if (!s.includes(search)) return false;
         }
         return true;
       });
 
+      filtered.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
       document.getElementById('ticketCount').textContent = filtered.length;
-      const tbody = document.getElementById('ticketsTableBody');
 
+      const tbody = document.getElementById('ticketsTableBody');
+      
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-muted);">No hay tickets resueltos</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state"><div class="empty-state-icon">✅</div><p>No hay tickets resueltos</p></td></tr>`;
         return;
       }
 
       tbody.innerHTML = filtered.map(t => `
         <tr>
-          <td style="font-family: monospace; color: var(--success);">#T-${t.id}</td>
+          <td><strong class="text-success">${t.ticketId || `T-${t.id}`}</strong></td>
           <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.title}">${t.title}</td>
           <td>
-            <div>${t.requesterName || 'Desconocido'}</div>
-            <div style="font-size: 12px; color: var(--text-muted);">${t.requesterPhone}</div>
+            <div style="font-weight: 500;">${t.requesterName || 'Desconocido'}</div>
+            <div class="text-muted" style="font-size: 12px;">${t.requesterPhone}</div>
           </td>
-          <td>${t.area}</td>
-          <td>${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span style="color: var(--text-muted);">Sin asignar</span>'}</td>
-          <td style="font-size: 13px; color: var(--text-muted);">${new Date(t.updatedAt).toLocaleString()}</td>
+          <td><span class="badge badge-info">${t.area}</span></td>
+          <td>${t.assignedTo ? getEmployeeName(t.assignedTo) : '<span class="text-muted">-</span>'}</td>
+          <td style="font-size: 13px;">${new Date(t.updatedAt).toLocaleString('es')}</td>
           <td><button class="btn btn-secondary" onclick="viewTicket(${t.id})" style="padding: 6px 12px; font-size: 13px;">Ver</button></td>
         </tr>
       `).join('');
@@ -329,77 +245,60 @@
       return emp ? emp.name : phone;
     }
 
-    async function viewTicket(id) {
-      currentTicketId = id;
+    function viewTicket(id) {
       const t = allTickets.find(x => x.id === id);
       if (!t) return;
 
-      document.getElementById('modalTitle').textContent = `Ticket #T-${t.id} (Resuelto)`;
-      document.getElementById('modalSubtitle').textContent = `Cerrado el: ${new Date(t.updatedAt).toLocaleString()}`;
+      document.getElementById('modalTitle').textContent = `Ticket ${t.ticketId || `T-${t.id}`}`;
+      document.getElementById('modalSubtitle').textContent = `Resuelto: ${new Date(t.updatedAt).toLocaleString()}`;
       document.getElementById('modalDescription').textContent = t.description || 'Sin descripción';
-      document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'} (${t.requesterPhone})`;
+      document.getElementById('modalRequester').textContent = `${t.requesterName || 'Desconocido'}`;
       document.getElementById('modalArea').textContent = t.area;
       document.getElementById('modalAssignee').textContent = t.assignedTo ? getEmployeeName(t.assignedTo) : 'Sin asignar';
-      document.getElementById('modalResolvedAt').textContent = new Date(t.updatedAt).toLocaleString();
 
-      // Renderizar mensajes
-      const messageList = document.getElementById('messageList');
-      if (t.messages && t.messages.length > 0) {
-        messageList.innerHTML = t.messages.map(m => {
-          const isBot = m.from === 'bot' || m.from === 'panel';
-          const name = isBot ? '🤖 Sistema' : `👤 ${m.name}`;
-          return `
-            <div class="message-item">
-              <div class="message-header">
-                <span>${name}</span>
-                <span>${new Date(m.at).toLocaleString()}</span>
-              </div>
-              <div class="message-text">${m.text}</div>
-            </div>
-          `;
-        }).join('');
-      } else {
-        messageList.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 20px;">Sin mensajes</p>';
-      }
-
+      renderChat(t.messages || []);
       document.getElementById('modal').classList.add('active');
     }
 
-    async function reopenTicket() {
-      if (!currentTicketId || !currentUser || currentUser.role !== 'admin') return;
-      if (!confirm('¿Reabrir este ticket? Volverá a la bandeja de Tickets Activos.')) return;
-
-      try {
-        const res = await fetch(`/api/tickets/${currentTicketId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'abierta' })
-        });
-        
-        if (res.ok) {
-          closeModal();
-          await loadData();
-        } else {
-          alert('Error al reabrir');
-        }
-      } catch (error) {
-        alert('Error de red');
+    function renderChat(messages) {
+      const chatContainer = document.getElementById('chatMessages');
+      
+      if (messages.length === 0) {
+        chatContainer.innerHTML = '<p class="text-muted" style="text-align: center; padding: 20px;">No hay mensajes</p>';
+        return;
       }
+
+      chatContainer.innerHTML = messages.map(m => {
+        const isUser = m.from !== 'bot' && m.from !== 'panel';
+        const bgColor = isUser ? 'var(--primary-bg)' : 'var(--bg-secondary)';
+        const borderColor = isUser ? 'var(--primary)' : 'var(--border)';
+        
+        return `
+          <div style="margin-bottom: 12px; padding: 10px; background: ${bgColor}; border-left: 3px solid ${borderColor}; border-radius: 6px;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">
+              <strong>${isUser ? m.name : 'Sistema'}</strong> • ${new Date(m.at).toLocaleString()}
+            </div>
+            <div style="font-size: 14px; white-space: pre-wrap;">${m.text}</div>
+          </div>
+        `;
+      }).join('');
     }
 
     function closeModal() {
       document.getElementById('modal').classList.remove('active');
-      currentTicketId = null;
     }
 
-    document.getElementById('filterArea').addEventListener('change', renderTickets);
-    document.getElementById('filterSearch').addEventListener('input', renderTickets);
+    ['filterArea', 'filterDate', 'filterSearch'].forEach(id => {
+      document.getElementById(id).addEventListener('input', renderTickets);
+      document.getElementById(id).addEventListener('change', renderTickets);
+    });
+
     document.getElementById('modal').addEventListener('click', (e) => {
       if (e.target.id === 'modal') closeModal();
     });
 
     loadData();
-    setInterval(loadData, 15000);
+    setInterval(loadData, 60000);
   </script>
 </body>
 </html>

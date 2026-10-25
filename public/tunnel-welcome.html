@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bienvenido - CONATEL Panel</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+    }
+    .welcome-card {
+      background: var(--bg-secondary);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+    }
+    .welcome-icon {
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+    }
+    .welcome-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+    }
+    .welcome-subtitle {
+      font-size: 16px;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+    .info-box {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .info-box h4 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-primary);
+    }
+    .info-box ul {
+      margin: 0;
+      padding-left: 20px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.8;
+    }
+    .enter-button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: all 0.2s;
+      width: 100%;
+      margin-bottom: 16px;
+    }
+    .enter-button:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+    .auto-redirect {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .countdown {
+      font-weight: 600;
+      color: var(--primary);
+    }
+  </style>
+</head>
+<body>
+  <script>
+    // Si ya visitó antes, redirigir INMEDIATAMENTE sin mostrar nada
+    if (localStorage.getItem('tunnel_welcomed') === 'true') {
+      window.location.href = '/login.html';
+    }
+  </script>
+
+  <div class="welcome-card">
+    <div class="welcome-icon">🎉</div>
+    <h1 class="welcome-title">¡Bienvenido al Panel CONATEL!</h1>
+    <p class="welcome-subtitle">
+      Estás accediendo al sistema de gestión de tickets a través de una conexión segura.
+    </p>
+
+    <div class="info-box">
+      <h4>🔒 Información de Seguridad</h4>
+      <ul>
+        <li>Esta es una conexión temporal y segura</li>
+        <li>Todos los datos se transmiten de forma encriptada</li>
+        <li>Necesitas credenciales válidas para acceder</li>
+        <li>Esta página solo aparece la primera vez</li>
+      </ul>
+    </div>
+
+    <button class="enter-button" onclick="enterPanel()">
+      Entrar al Panel →
+    </button>
+
+    <div class="auto-redirect">
+      Redirección automática en <span class="countdown" id="countdown">10</span> segundos
+    </div>
+  </div>
+
+  <script>
+    let countdown = 10;
+    const countdownElement = document.getElementById('countdown');
+
+    const interval = setInterval(() => {
+      countdown--;
+      if (countdownElement) countdownElement.textContent = countdown;
+      
+      if (countdown <= 0) {
+        clearInterval(interval);
+        enterPanel();
+      }
+    }, 1000);
+
+    function enterPanel() {
+      localStorage.setItem('tunnel_welcomed', 'true');
+      window.location.href = '/login.html';
+    }
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  </script>
+</body>
+</html>

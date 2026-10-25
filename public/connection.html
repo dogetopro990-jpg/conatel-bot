@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conexión - CONATEL</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    .connection-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .connection-card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .connection-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .connection-card p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .url-box {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      font-family: monospace;
+      font-size: 13px;
+      word-break: break-all;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .url-box a {
+      color: var(--primary);
+      text-decoration: none;
+      flex: 1;
+    }
+    .url-box a:hover { text-decoration: underline; }
+    .copy-btn {
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: var(--text-primary);
+      transition: all 0.15s;
+    }
+    .copy-btn:hover { background: var(--primary); color: white; }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-active {
+      background: var(--success-bg);
+      color: var(--success);
+    }
+    .status-inactive {
+      background: var(--error-bg);
+      color: var(--error);
+    }
+    .setup-steps {
+      background: var(--bg-tertiary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .setup-steps ol {
+      margin-left: 20px;
+      line-height: 1.8;
+    }
+    .setup-steps code {
+      background: var(--bg-primary);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+    .qr-code {
+      text-align: center;
+      padding: 20px;
+      background: white;
+      border-radius: var(--radius);
+      margin: 16px 0;
+    }
+    .qr-code img { max-width: 200px; }
+    .form-group { margin-bottom: 12px; }
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 4px;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-left">
+      <button class="menu-toggle" onclick="toggleMenu()">☰</button>
+      <div class="nav-logo">C</div>
+      <div class="nav-title">
+        <h1>CONATEL</h1>
+        <p>Sistema de Tickets</p>
+      </div>
+    </div>
+    <div class="nav-links" id="navLinks">
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html">Tickets</a>
+      <a href="/resolved.html">Resueltos</a>
+      <a href="/employees.html">Empleados</a>
+      <a href="/messages.html">Mensajes</a>
+      <a href="/whatsapp.html">WhatsApp</a>
+      <a href="/connection.html" class="active">Conexión</a>
+      <a href="/database.html" id="dbLink">Base de datos</a>
+      <a href="/settings.html" id="settingsLink">Config</a>
+      <a href="/users.html" id="usersLink">Usuarios</a>
+    </div>
+    <div class="nav-right">
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <div class="user-info">
+        <span id="userName">Usuario</span>
+        <span id="userRole" class="badge badge-primary"></span>
+      </div>
+      <button class="logout-btn" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <main>
+    <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 8px;">🌐 Acceso al Panel</h2>
+    <p style="color: var(--text-secondary); margin-bottom: 24px;">
+      Diferentes formas de acceder al panel desde cualquier dispositivo.
+    </p>
+
+    <!-- Info del sistema -->
+    <div class="card mb-3">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">💻 Servidor</h3>
+      <div id="systemInfo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;"></div>
+    </div>
+
+    <div class="connection-grid">
+      <!-- Red Local -->
+      <div class="connection-card">
+        <h3>🏠 Red Local (WiFi/Ethernet)</h3>
+        <p>Accede desde cualquier dispositivo en la <strong>misma red</strong>. No requiere configuración adicional.</p>
+        <div id="localUrls"></div>
+        <div class="setup-steps">
+          <strong>📱 Para acceder desde tu celular:</strong>
+          <ol>
+            <li>Conecta el celular al <strong>mismo WiFi</strong> que el servidor</li>
+            <li>Abre el navegador y escribe una de las URLs de arriba</li>
+            <li>Inicia sesión con tus credenciales</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- Cloudflare -->
+      <div class="connection-card">
+        <h3>☁️ Cloudflare Tunnel <span class="status-badge status-inactive" id="cfStatus">No configurado</span></h3>
+        <p>Acceso desde <strong>cualquier lugar del mundo</strong> con HTTPS automático. Gratis y sin abrir puertos.</p>
+        <div id="cfUrl"></div>
+        <div class="setup-steps">
+          <strong>🔧 Configuración:</strong>
+          <ol>
+            <li>Crea cuenta en <a href="https://one.dash.cloudflare.com" target="_blank">Cloudflare Zero Trust</a> (gratis)</li>
+            <li>Ve a <strong>Access → Tunnels → Create a tunnel</strong></li>
+            <li>Elige "Cloudflared" y copia el comando</li>
+            <li>Ejecuta el comando en tu Raspberry Pi</li>
+            <li>Configura un dominio público</li>
+          </ol>
+        </div>
+        <div id="adminControlsCf" style="margin-top: 12px; display: none;">
+          <div class="form-group">
+            <label>URL del túnel</label>
+            <input type="text" id="cfTunnelUrl" placeholder="https://conatel.tusitio.com" />
+          </div>
+          <button class="btn btn-primary" onclick="saveCfTunnel()" style="width: 100%;">💾 Guardar</button>
+        </div>
+      </div>
+
+      <!-- Tailscale -->
+      <div class="connection-card">
+        <h3>🔒 Tailscale <span class="status-badge status-inactive" id="tsStatus">No configurado</span></h3>
+        <p>Red privada entre tus dispositivos. <strong>Muy seguro</strong>, solo acceden dispositivos autorizados.</p>
+        <div id="tsUrl"></div>
+        <div class="setup-steps">
+          <strong>🔧 Configuración:</strong>
+          <ol>
+            <li>Crea cuenta en <a href="https://tailscale.com" target="_blank">tailscale.com</a></li>
+            <li>Instala en Raspberry Pi: <code>curl -fsSL https://tailscale.com/install.sh | sh</code></li>
+            <li>Ejecuta: <code>sudo tailscale up</code></li>
+            <li>Instala en tus otros dispositivos</li>
+          </ol>
+        </div>
+        <div id="adminControlsTs" style="margin-top: 12px; display: none;">
+          <div class="form-group">
+            <label>IP o nombre Tailscale</label>
+            <input type="text" id="tsTunnelUrl" placeholder="http://100.x.y.z:3000" />
+          </div>
+          <button class="btn btn-primary" onclick="saveTsTunnel()" style="width: 100%;">💾 Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR de acceso rápido -->
+    <div class="card mt-3">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">📲 Acceso rápido con QR</h3>
+      <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">
+        Escanea este código con tu celular para abrir el panel rápidamente.
+      </p>
+      <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
+        <div>
+          <div class="form-group" style="min-width: 250px;">
+            <label>URL a codificar</label>
+            <select id="qrUrlSelect" onchange="updateQR()" style="width: 100%;"></select>
+          </div>
+          <div id="qrCodeContainer" class="qr-code"></div>
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+          <div class="setup-steps">
+            <strong>📱 Cómo usar:</strong>
+            <ol>
+              <li>Selecciona la URL que quieres codificar</li>
+              <li>Abre la cámara de tu celular</li>
+              <li>Apunta al código QR</li>
+              <li>Toca la notificación para abrir el panel</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let currentUser = null;
+    let networkInfo = null;
+
+    fetch('/api/auth/me')
+      .then(res => {
+        if (!res.ok) throw new Error('No autenticado');
+        return res.json();
+      })
+      .then(user => {
+        currentUser = user;
+        document.getElementById('userName').textContent = user.name;
+        document.getElementById('userRole').textContent = user.role;
+        
+        if (user.role !== 'admin') {
+          ['settingsLink', 'usersLink', 'dbLink'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+          });
+        } else {
+          document.getElementById('adminControlsCf').style.display = 'block';
+          document.getElementById('adminControlsTs').style.display = 'block';
+        }
+        
+        loadNetworkInfo();
+      })
+      .catch(() => { window.location.href = '/login.html'; });
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/login.html';
+    }
+    function toggleMenu() {
+      document.getElementById('navLinks').classList.toggle('open');
+    }
+
+    async function loadNetworkInfo() {
+      try {
+        const res = await fetch('/api/network/info');
+        networkInfo = await res.json();
+        renderSystemInfo();
+        renderLocalUrls();
+        renderTunnelStatus();
+        renderQRSelector();
+      } catch (error) {
+        console.error('Error:', error);
+      }
+    }
+
+    function renderSystemInfo() {
+      const info = networkInfo;
+      document.getElementById('systemInfo').innerHTML = `
+        <div>
+          <div class="text-muted" style="font-size: 12px;">Hostname</div>
+          <div style="font-weight: 600;">${info.hostname}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size: 12px;">Plataforma</div>
+          <div style="font-weight: 600;">${info.platform} (${info.arch})</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size: 12px;">CPU</div>
+          <div style="font-weight: 600;">${info.cpus} núcleos</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size: 12px;">Memoria</div>
+          <div style="font-weight: 600;">${info.memory}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size: 12px;">Puerto</div>
+          <div style="font-weight: 600;">${info.port}</div>
+        </div>
+        <div>
+          <div class="text-muted" style="font-size: 12px;">Uptime</div>
+          <div style="font-weight: 600;">${info.uptime}</div>
+        </div>
+      `;
+    }
+
+    function renderLocalUrls() {
+      const container = document.getElementById('localUrls');
+      if (networkInfo.localUrls.length === 0) {
+        container.innerHTML = '<p class="text-muted">No se detectaron interfaces de red</p>';
+        return;
+      }
+
+      container.innerHTML = networkInfo.localUrls.map(ip => `
+        <div class="url-box">
+          <a href="${ip.url}" target="_blank">
+            <strong>${ip.label}:</strong> ${ip.url}
+          </a>
+          <button class="copy-btn" onclick="copyToClipboard('${ip.url}')">📋</button>
+        </div>
+      `).join('');
+    }
+
+    function renderTunnelStatus() {
+      const tunnel = networkInfo.tunnel;
+      
+      const cfStatus = document.getElementById('cfStatus');
+      const cfUrl = document.getElementById('cfUrl');
+      if (tunnel && tunnel.enabled && tunnel.type === 'cloudflare' && tunnel.url) {
+        cfStatus.textContent = 'Activo';
+        cfStatus.className = 'status-badge status-active';
+        cfUrl.innerHTML = `
+          <div class="url-box">
+            <a href="${tunnel.url}" target="_blank">${tunnel.url}</a>
+            <button class="copy-btn" onclick="copyToClipboard('${tunnel.url}')">📋</button>
+          </div>
+        `;
+        document.getElementById('cfTunnelUrl').value = tunnel.url;
+      }
+
+      const tsStatus = document.getElementById('tsStatus');
+      const tsUrl = document.getElementById('tsUrl');
+      if (tunnel && tunnel.enabled && tunnel.type === 'tailscale' && tunnel.url) {
+        tsStatus.textContent = 'Activo';
+        tsStatus.className = 'status-badge status-active';
+        tsUrl.innerHTML = `
+          <div class="url-box">
+            <a href="${tunnel.url}" target="_blank">${tunnel.url}</a>
+            <button class="copy-btn" onclick="copyToClipboard('${tunnel.url}')">📋</button>
+          </div>
+        `;
+        document.getElementById('tsTunnelUrl').value = tunnel.url;
+      }
+    }
+
+    function renderQRSelector() {
+      const select = document.getElementById('qrUrlSelect');
+      const urls = [];
+      
+      networkInfo.localUrls.forEach(ip => {
+        urls.push({ label: `${ip.label} - ${ip.url}`, url: ip.url });
+      });
+      
+      const tunnel = networkInfo.tunnel;
+      if (tunnel && tunnel.enabled && tunnel.url) {
+        urls.push({ label: `${tunnel.type === 'cloudflare' ? '☁️ Cloudflare' : '🔒 Tailscale'} - ${tunnel.url}`, url: tunnel.url });
+      }
+
+      if (urls.length === 0) {
+        select.innerHTML = '<option>No hay URLs disponibles</option>';
+        return;
+      }
+
+      select.innerHTML = urls.map((u, i) => 
+        `<option value="${u.url}" ${i === 0 ? 'selected' : ''}>${u.label}</option>`
+      ).join('');
+      
+      updateQR();
+    }
+
+    function updateQR() {
+      const url = document.getElementById('qrUrlSelect').value;
+      if (!url) return;
+      
+      const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+      document.getElementById('qrCodeContainer').innerHTML = `
+        <img src="${qrApiUrl}" alt="QR Code" />
+        <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); word-break: break-all;">${url}</div>
+      `;
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('✓ Copiado: ' + text);
+      }).catch(() => {
+        const input = document.createElement('input');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        alert('✓ Copiado: ' + text);
+      });
+    }
+
+    async function saveCfTunnel() {
+      const url = document.getElementById('cfTunnelUrl').value.trim();
+      if (!url) { alert('Ingresa una URL'); return; }
+      
+      try {
+        await fetch('/api/network/tunnel', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true, type: 'cloudflare', url })
+        });
+        alert('✓ Configuración guardada');
+        loadNetworkInfo();
+      } catch { alert('Error al guardar'); }
+    }
+
+    async function saveTsTunnel() {
+      const url = document.getElementById('tsTunnelUrl').value.trim();
+      if (!url) { alert('Ingresa una URL'); return; }
+      
+      try {
+        await fetch('/api/network/tunnel', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled: true, type: 'tailscale', url })
+        });
+        alert('✓ Configuración guardada');
+        loadNetworkInfo();
+      } catch { alert('Error al guardar'); }
+    }
+  </script>
+</body>
+</html>

@@ -8,88 +8,103 @@
   <style>
     .chat-layout {
       display: grid;
-      grid-template-columns: 350px 1fr;
-      gap: 20px;
-      height: calc(100vh - 200px);
+      grid-template-columns: 300px 1fr;
+      gap: 16px;
+      height: calc(100vh - 140px);
+      min-height: 500px;
     }
-    
+
+    @media (max-width: 900px) {
+      .chat-layout {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+      .contacts-panel {
+        max-height: 300px;
+      }
+    }
+
     .contacts-panel {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: var(--radius-lg);
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
-    
+
     .contacts-header {
-      padding: 16px;
+      padding: 12px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-tertiary);
     }
-    
+
     .contacts-list {
       flex: 1;
       overflow-y: auto;
     }
-    
+
     .contact-item {
       padding: 12px 16px;
       border-bottom: 1px solid var(--border);
       cursor: pointer;
-      transition: background 0.2s;
+      transition: all 0.15s;
       display: flex;
       align-items: center;
       gap: 12px;
     }
-    
+
     .contact-item:hover {
       background: var(--bg-hover);
     }
-    
+
     .contact-item.active {
-      background: var(--bg-hover);
-      border-left: 3px solid var(--accent);
+      background: var(--primary-bg);
+      border-left: 3px solid var(--primary);
     }
-    
+
     .contact-avatar {
       width: 40px;
       height: 40px;
       border-radius: 50%;
-      background: var(--accent);
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
       color: white;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 600;
       font-size: 16px;
+      flex-shrink: 0;
     }
-    
+
     .contact-info {
       flex: 1;
       min-width: 0;
     }
-    
+
     .contact-name {
-      font-weight: 500;
+      font-weight: 600;
       font-size: 14px;
       margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    
+
     .contact-area {
       font-size: 12px;
       color: var(--text-muted);
     }
-    
+
     .chat-panel {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: var(--radius-lg);
       overflow: hidden;
       display: flex;
       flex-direction: column;
     }
-    
+
     .chat-header {
       padding: 16px 20px;
       border-bottom: 1px solid var(--border);
@@ -98,57 +113,57 @@
       align-items: center;
       gap: 12px;
     }
-    
+
     .chat-messages {
       flex: 1;
       overflow-y: auto;
       padding: 20px;
       background: var(--bg-primary);
     }
-    
+
     .message {
       margin-bottom: 16px;
       display: flex;
       flex-direction: column;
     }
-    
+
     .message.sent {
       align-items: flex-end;
     }
-    
+
     .message.received {
       align-items: flex-start;
     }
-    
+
     .message-bubble {
       max-width: 70%;
       padding: 10px 14px;
       border-radius: 12px;
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.5;
       word-wrap: break-word;
     }
-    
+
     .message.sent .message-bubble {
-      background: var(--accent);
+      background: var(--primary);
       color: white;
       border-bottom-right-radius: 4px;
     }
-    
+
     .message.received .message-bubble {
       background: var(--bg-secondary);
       color: var(--text-primary);
       border: 1px solid var(--border);
       border-bottom-left-radius: 4px;
     }
-    
+
     .message-time {
       font-size: 11px;
       color: var(--text-muted);
       margin-top: 4px;
       padding: 0 4px;
     }
-    
+
     .chat-input-area {
       padding: 16px 20px;
       border-top: 1px solid var(--border);
@@ -156,11 +171,7 @@
       display: flex;
       gap: 12px;
     }
-    
-    .chat-input-area input {
-      flex: 1;
-    }
-    
+
     .no-chat-selected {
       flex: 1;
       display: flex;
@@ -169,69 +180,62 @@
       color: var(--text-muted);
       font-size: 16px;
     }
-    
+
     .broadcast-section {
       margin-top: 20px;
-    }
-    
-    @media (max-width: 768px) {
-      .chat-layout {
-        grid-template-columns: 1fr;
-        height: auto;
-      }
-      
-      .contacts-panel {
-        max-height: 300px;
-      }
     }
   </style>
 </head>
 <body>
   <nav class="nav">
     <div class="nav-left">
+      <button class="menu-toggle" onclick="toggleMenu()">☰</button>
       <div class="nav-logo">C</div>
       <div class="nav-title">
-        <h1>CONATEL Panel</h1>
-        <p>Sistema de Gestión de Tickets</p>
+        <h1>CONATEL</h1>
+        <p>Sistema de Tickets</p>
       </div>
     </div>
-    <div class="nav-links">
-      <a href="index.html">Dashboard</a>
-      <a href="tickets.html">Tickets</a>
-      <a href="resolved.html">Resueltos</a>
-      <a href="employees.html">Empleados</a>
-      <a href="messages.html" class="active">Mensajes</a>
-      <a href="settings.html" id="settingsLink">Config</a>
-      <a href="users.html" id="usersLink">Usuarios</a>
+    <div class="nav-links" id="navLinks">
+      <a href="/index.html">Dashboard</a>
+      <a href="/tickets.html">Tickets</a>
+      <a href="/resolved.html">Resueltos</a>
+      <a href="/employees.html">Empleados</a>
+      <a href="/messages.html" class="active">Mensajes</a>
+      <a href="/whatsapp.html">WhatsApp</a>
+      <a href="/connection.html">Conexión</a>
+      <a href="/database.html" id="dbLink">Base de datos</a>
+      <a href="/settings.html" id="settingsLink">Config</a>
+      <a href="/users.html" id="usersLink">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
       <div class="user-info">
         <span id="userName">Usuario</span>
-        <span id="userRole" class="badge badge-info"></span>
+        <span id="userRole" class="badge badge-primary"></span>
       </div>
-      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+      <button class="logout-btn" onclick="logout()">Salir</button>
     </div>
   </nav>
 
   <main>
-    <h2 style="font-size: 28px; font-weight: 600; margin-bottom: 24px;">Mensajería</h2>
+    <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 24px;">Mensajería</h2>
     
     <div class="chat-layout">
-      <!-- Panel de Contactos -->
+      <!-- Lista de contactos -->
       <div class="contacts-panel">
         <div class="contacts-header">
-          <input type="text" id="searchContact" placeholder="Buscar empleado..." style="width: 100%;" />
+          <input type="text" id="searchContact" placeholder="🔍 Buscar empleado..." />
         </div>
         <div class="contacts-list" id="contactsList">
-          <p style="text-align: center; padding: 40px; color: var(--text-muted);">Cargando empleados...</p>
+          <div class="loading"><div class="spinner"></div> Cargando...</div>
         </div>
       </div>
 
-      <!-- Panel de Chat -->
+      <!-- Panel de chat -->
       <div class="chat-panel" id="chatPanel">
         <div class="no-chat-selected" id="noChatSelected">
-          Selecciona un empleado para iniciar una conversación
+          Selecciona un empleado para iniciar conversación
         </div>
         
         <div id="chatContent" style="display: none; flex-direction: column; height: 100%;">
@@ -244,7 +248,7 @@
           </div>
           
           <div class="chat-messages" id="chatMessages">
-            <p style="text-align: center; color: var(--text-muted); padding: 40px;">No hay mensajes aún</p>
+            <p style="text-align: center; color: var(--text-muted); padding: 40px;">Inicia una conversación</p>
           </div>
           
           <div class="chat-input-area">
@@ -255,10 +259,13 @@
       </div>
     </div>
 
-    <!-- Sección de Broadcast -->
-    <div class="broadcast-section card" id="broadcastSection" style="margin-top: 24px;">
+    <!-- Broadcast (solo admin) -->
+    <div id="broadcastSection" class="broadcast-section card" style="display: none;">
       <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">📢 Mensaje Masivo</h3>
-      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px;">
+      <div class="alert alert-warning">
+        <strong>⚠️ Precaución:</strong> Los mensajes masivos pueden saturar el sistema. Usa solo cuando sea necesario.
+      </div>
+      <div class="grid-2 mb-2">
         <select id="broadcastArea">
           <option value="">Todos los empleados</option>
         </select>
@@ -276,7 +283,7 @@
     let selectedEmployee = null;
     let messageHistory = {};
 
-    // Verificar autenticación
+    // Auth
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -288,31 +295,32 @@
         document.getElementById('userRole').textContent = user.role;
         
         if (user.role !== 'admin') {
-          document.getElementById('settingsLink').style.display = 'none';
-          document.getElementById('usersLink').style.display = 'none';
-          document.getElementById('broadcastSection').style.display = 'none';
+          ['settingsLink', 'usersLink', 'dbLink'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+          });
+        } else {
+          document.getElementById('broadcastSection').style.display = 'block';
         }
         
         loadEmployees();
       })
-      .catch(() => {
-        window.location.href = '/login.html';
-      });
+      .catch(() => { window.location.href = '/login.html'; });
 
-    // Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
-    
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
-
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login.html';
+    }
+    function toggleMenu() {
+      document.getElementById('navLinks').classList.toggle('open');
     }
 
     async function loadEmployees() {
@@ -324,12 +332,10 @@
         
         allEmployees = await empRes.json();
         allAreas = await areasRes.json();
-
         renderContacts();
         
-        // Actualizar dropdown de broadcast
-        const broadcastArea = document.getElementById('broadcastArea');
-        broadcastArea.innerHTML = '<option value="">Todos los empleados</option>' + 
+        document.getElementById('broadcastArea').innerHTML = 
+          '<option value="">Todos los empleados</option>' + 
           allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
       } catch (error) {
         console.error('Error:', error);
@@ -338,8 +344,7 @@
 
     function renderContacts(filter = '') {
       const filtered = allEmployees.filter(e => 
-        e.name.toLowerCase().includes(filter.toLowerCase()) ||
-        e.area.toLowerCase().includes(filter.toLowerCase())
+        `${e.name} ${e.area} ${e.role}`.toLowerCase().includes(filter.toLowerCase())
       );
 
       const contactsList = document.getElementById('contactsList');
@@ -383,7 +388,6 @@
 
     function loadMessages() {
       if (!selectedEmployee) return;
-
       const messages = messageHistory[selectedEmployee.phone] || [];
       const chatMessages = document.getElementById('chatMessages');
 
@@ -395,7 +399,6 @@
       chatMessages.innerHTML = messages.map(m => {
         const type = m.from === 'panel' ? 'sent' : 'received';
         const time = new Date(m.at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
-        
         return `
           <div class="message ${type}">
             <div class="message-bubble">${m.text}</div>
@@ -409,7 +412,6 @@
 
     async function sendMessage() {
       if (!selectedEmployee) return;
-
       const input = document.getElementById('messageInput');
       const text = input.value.trim();
       if (!text) return;
@@ -418,48 +420,38 @@
         const res = await fetch('/api/messages/send', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: selectedEmployee.phone,
-            text
-          })
+          body: JSON.stringify({ to: selectedEmployee.phone, text })
         });
 
         const data = await res.json();
 
         if (data.ok) {
-          // Agregar mensaje al historial local
-          if (!messageHistory[selectedEmployee.phone]) {
-            messageHistory[selectedEmployee.phone] = [];
-          }
-          
+          if (!messageHistory[selectedEmployee.phone]) messageHistory[selectedEmployee.phone] = [];
           messageHistory[selectedEmployee.phone].push({
-            from: 'panel',
-            text,
-            at: new Date().toISOString()
+            from: 'panel', text, at: new Date().toISOString()
           });
-
           input.value = '';
           loadMessages();
         } else {
-          alert('Error al enviar mensaje: ' + (data.error || 'Desconocido'));
+          alert('Error: ' + (data.reason || data.error || 'Desconocido'));
         }
       } catch (error) {
-        alert('Error de red al enviar mensaje');
+        alert('Error de red');
       }
     }
 
     async function sendBroadcast() {
       if (!currentUser || currentUser.role !== 'admin') return;
-
       const area = document.getElementById('broadcastArea').value;
       const text = document.getElementById('broadcastMessage').value.trim();
       
-      if (!text) {
-        alert('Escribe un mensaje');
-        return;
-      }
+      if (!text) { alert('Escribe un mensaje'); return; }
 
-      if (!confirm(`¿Enviar mensaje a ${area || 'todos los empleados'}?`)) return;
+      const targetDesc = area || 'todos los empleados';
+      if (!confirm(`¿Enviar mensaje a ${targetDesc}?`)) return;
+
+      const resultEl = document.getElementById('broadcastResult');
+      resultEl.innerHTML = '<span class="text-muted">⏳ Enviando mensajes...</span>';
 
       try {
         const res = await fetch('/api/messages/broadcast', {
@@ -469,16 +461,21 @@
         });
 
         const data = await res.json();
-        const resultEl = document.getElementById('broadcastResult');
         
         if (data.ok) {
-          resultEl.innerHTML = `<span style="color: var(--success);">✓ Mensaje enviado a ${data.sent}/${data.total} empleados</span>`;
+          let html = `<span class="text-success">✓ Enviado a ${data.sent}/${data.total} empleados</span>`;
+          if (data.failed && data.failed.length > 0) {
+            html += `<div class="text-warning" style="margin-top: 8px; font-size: 12px;">
+              <strong>⚠️ ${data.failed.length} mensajes bloqueados</strong>
+            </div>`;
+          }
+          resultEl.innerHTML = html;
           document.getElementById('broadcastMessage').value = '';
         } else {
-          resultEl.innerHTML = `<span style="color: var(--error);">✗ Error: ${data.error}</span>`;
+          resultEl.innerHTML = `<span class="text-error">✗ ${data.error}</span>`;
         }
       } catch (error) {
-        document.getElementById('broadcastResult').innerHTML = `<span style="color: var(--error);">✗ Error de red</span>`;
+        resultEl.innerHTML = `<span class="text-error">✗ Error de red</span>`;
       }
     }
 
@@ -486,11 +483,8 @@
       renderContacts(e.target.value);
     });
 
-    // Auto-refresh cada 10 segundos
     setInterval(() => {
-      if (selectedEmployee) {
-        loadMessages();
-      }
+      if (selectedEmployee) loadMessages();
     }, 10000);
   </script>
 </body>

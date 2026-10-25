@@ -162,31 +162,34 @@
 </head>
 <body>
   <nav class="nav">
-    <div class="nav-left">
-      <div class="nav-logo">C</div>
-      <div class="nav-title">
-        <h1>CONATEL Panel</h1>
-        <p>Sistema de Gestión de Tickets</p>
-      </div>
+  <div class="nav-left">
+    <div class="nav-logo">C</div>
+    <div class="nav-title">
+      <h1>CONATEL Panel</h1>
+      <p>Sistema de Gestión de Tickets</p>
     </div>
-    <div class="nav-links">
-      <a href="/index.html">Dashboard</a>
-      <a href="/tickets.html" class="active">Tickets</a>
-      <a href="/resolved.html">Resueltos</a>
-      <a href="/employees.html">Empleados</a>
-      <a href="/messages.html">Mensajes</a>
-      <a href="/settings.html" id="settingsLink">Config</a>
-      <a href="/users.html" id="usersLink">Usuarios</a>
+  </div>
+  <div class="nav-links">
+    <a href="/index.html">Dashboard</a>
+    <a href="/tickets.html">Tickets</a>
+    <a href="/resolved.html">Resueltos</a>
+    <a href="/employees.html">Empleados</a>
+    <a href="/messages.html">Mensajes</a>
+    <a href="/whatsapp.html">WhatsApp</a>
+    <a href="/connection.html">Conexión</a>
+    <a href="/database.html" id="dbLink">Base de datos</a>
+    <a href="/settings.html" id="settingsLink">Config</a>
+    <a href="/users.html" id="usersLink">Usuarios</a>
+  </div>
+  <div class="nav-right">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+    <div class="user-info">
+      <span id="userName">Usuario</span>
+      <span id="userRole" class="badge badge-info"></span>
     </div>
-    <div class="nav-right">
-      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
-      <div class="user-info">
-        <span id="userName">Usuario</span>
-        <span id="userRole" class="badge badge-info"></span>
-      </div>
-      <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
-    </div>
-  </nav>
+    <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+  </div>
+</nav>
 
   <main>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">

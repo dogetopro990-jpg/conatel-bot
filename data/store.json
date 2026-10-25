@@ -3,15 +3,15 @@
     "50432412123": {
       "name": "Yunior Alejandro Vásquez",
       "area": "Gerencia General",
-      "role": "Director",
-      "registeredAt": "2026-10-21T15:54:25.943Z",
+      "role": "Jefe",
+      "registeredAt": "2026-10-22T16:29:11.263Z",
       "phone": "50432412123",
-      "updatedAt": "2026-10-21T15:54:25.943Z"
+      "updatedAt": "2026-10-22T16:29:11.263Z"
     }
   },
   "tickets": {
-    "2": {
-      "id": 2,
+    "1": {
+      "id": 1,
       "chatId": "273761836204183@lid",
       "requesterPhone": "50432412123",
       "requesterName": "Alejandro 🤟",
@@ -19,34 +19,127 @@
       "description": "La impresora no funciona",
       "area": "soporte",
       "urgency": "critica",
+      "location": "La impresora no funciona",
       "status": "abierta",
-      "assignedTo": null,
+      "assignedTo": "50432412123",
       "priorityLevel": "critica",
-      "score": 86,
-      "createdAt": "2026-10-21T15:55:39.390Z",
-      "updatedAt": "2026-10-22T14:49:04.167Z",
+      "score": 90,
+      "createdAt": "2026-10-22T16:29:36.952Z",
+      "updatedAt": "2026-10-22T20:18:52.042Z",
       "messages": [
         {
           "from": "50432412123",
           "name": "Alejandro 🤟",
           "text": "La impresora no funciona",
           "kind": "mensaje",
-          "at": "2026-10-21T15:55:39.390Z"
+          "at": "2026-10-22T16:29:36.952Z"
         },
         {
           "from": "50432412123",
           "name": "Alejandro 🤟",
-          "text": "La impresora no funciona",
+          "text": "Mira revisando un poco la impresora el problema son los cabezales",
           "kind": "aclaracion",
-          "at": "2026-10-21T15:55:40.713Z"
+          "at": "2026-10-22T16:30:33.387Z"
+        },
+        {
+          "from": "50432412123",
+          "name": "Alejandro 🤟",
+          "text": "En la impresora no solo eran los cabezales si no que también los inyectores",
+          "kind": "aclaracion",
+          "at": "2026-10-22T16:34:10.543Z"
         }
       ],
-      "kind": "aclaracion",
-      "lastAlertAt": "2026-10-22T14:49:04.167Z"
+      "manualPriority": true,
+      "kind": "mensaje_pendiente",
+      "lastAlertAt": "2026-10-22T20:18:52.042Z"
+    },
+    "2": {
+      "id": 2,
+      "ticketId": "SOP-2",
+      "chatId": "273761836204183@lid",
+      "requesterPhone": "50432412123",
+      "requesterName": "Alejandro 🤟",
+      "title": "Tengo una computadora malo",
+      "description": "Tengo una computadora malo\n\n[Actualización 22/10/2026, 13:39:49] Por cierto no solo es mi computadora también es mi monitor",
+      "area": "soporte",
+      "urgency": "media",
+      "location": "Tengo una computadora malo",
+      "status": "abierta",
+      "assignedTo": null,
+      "priorityLevel": "media",
+      "score": 36,
+      "createdAt": "2026-10-22T19:36:37.825Z",
+      "updatedAt": "2026-10-22T19:39:49.044Z",
+      "messages": [
+        {
+          "from": "50432412123",
+          "name": "Alejandro 🤟",
+          "text": "Tengo una computadora malo",
+          "kind": "mensaje",
+          "at": "2026-10-22T19:36:37.825Z"
+        },
+        {
+          "from": "50432412123",
+          "name": "Yunior Alejandro Vásquez",
+          "text": "Por cierto no solo es mi computadora también es mi monitor",
+          "kind": "aclaracion",
+          "at": "2026-10-22T19:39:49.121Z"
+        }
+      ],
+      "kind": "mensaje_pendiente"
+    },
+    "3": {
+      "id": 3,
+      "ticketId": "SOP-3",
+      "chatId": "273761836204183@lid",
+      "requesterPhone": "50432412123",
+      "requesterName": "Alejandro 🤟",
+      "title": "Hay otro problema y es que hay un enchufe quemado en mi area",
+      "description": "Hay otro problema y es que hay un enchufe quemado en mi area\n\n[Actualización 22/10/2026, 14:06:44] De la computadora no se les olvide",
+      "area": "soporte",
+      "urgency": "alta",
+      "location": "mi area",
+      "status": "abierta",
+      "assignedTo": null,
+      "priorityLevel": "media",
+      "score": 55,
+      "createdAt": "2026-10-22T20:03:58.774Z",
+      "updatedAt": "2026-10-22T20:06:44.071Z",
+      "messages": [
+        {
+          "from": "50432412123",
+          "name": "Alejandro 🤟",
+          "text": "Hay otro problema y es que hay un enchufe quemado en mi area",
+          "kind": "mensaje",
+          "at": "2026-10-22T20:03:58.774Z"
+        },
+        {
+          "from": "50432412123",
+          "name": "Yunior Alejandro Vásquez",
+          "text": "De la computadora no se les olvide",
+          "kind": "aclaracion",
+          "at": "2026-10-22T20:06:44.091Z"
+        }
+      ],
+      "kind": "mensaje_pendiente"
     }
   },
-  "sessions": {},
-  "activeTickets": {},
+  "sessions": {
+    "reg:268976621920479": {
+      "step": "pedir_nombre",
+      "data": {}
+    },
+    "reg:35498525458682": {
+      "step": "pedir_nombre",
+      "data": {}
+    }
+  },
+  "activeTickets": {
+    "273761836204183@lid:50432412123": {
+      "ticketId": 3,
+      "expiresAt": "2026-10-22T20:21:44.091Z"
+    }
+  },
   "settings": {
     "autoAlerts": true,
     "priorityThreshold": 70,
@@ -58,5 +151,21 @@
   },
   "counters": {
     "ticket": 100
+  },
+  "users": {
+    "admin": {
+      "username": "admin",
+      "password": "240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9",
+      "role": "admin",
+      "name": "Administrador",
+      "createdAt": "2026-10-22T15:02:47.445Z"
+    },
+    "visualizador": {
+      "username": "visualizador",
+      "password": "2b627fca21406f02e065ad7987bc7641a6a9a61b3902f852f67b733e2792727b",
+      "role": "visualizador",
+      "name": "Visualizador",
+      "createdAt": "2026-10-22T15:02:47.445Z"
+    }
   }
 }

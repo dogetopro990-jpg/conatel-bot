@@ -106,6 +106,10 @@ const RESPONSES = {
     'Ok, ¿esto afecta a más personas o solo a ti?',
     '¿Has intentado alguna solución antes?'
   ],
+  multi_ticket_ambiguo: [
+    'Tienes más de un ticket activo. ¿Te refieres al "{ticket1}" o al "{ticket2}"?',
+    'Para actualizar el correcto, ¿hablas del problema de "{ticket1}" o del de "{ticket2}"?'
+  ],
   no_entendido: [
     'No entendí bien. ¿Podrías explicarme qué necesitas?',
     'Disculpa, no capté bien. ¿Me puedes decir de otra forma?',
@@ -117,7 +121,6 @@ function getRandomResponse(category, replacements = {}) {
   const responses = getMessages(category, RESPONSES[category]) || RESPONSES.no_entendido;
   let response = responses[Math.floor(Math.random() * responses.length)];
   
-  // Reemplazar TODOS los placeholders
   Object.keys(replacements).forEach(key => {
     const regex = new RegExp(`\\{${key}\\}`, 'g');
     response = response.replace(regex, replacements[key] || '');
@@ -202,7 +205,8 @@ async function gemini(prompt, { json = true } = {}) {
   if (json) body.generationConfig.responseMimeType = 'application/json';
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  // ⬆️ AUMENTADO A 10 SEGUNDOS PARA EVITAR ABORTOS PREMATURES
+  const timeout = setTimeout(() => controller.abort(), 10000);
 
   try {
     const response = await fetch(url, {
@@ -247,7 +251,6 @@ function detectUrgencyFromText(text) {
 
 function extractNameLocal(text) {
   const t = text.trim();
-  
   const patterns = [
     /(?:^|\b)(?:con|soy|me\s?llamo|mi\s?nombre\s?es|soy\s+el|soy\s+la)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){0,5})/i,
     /^([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+){1,5})/i,
@@ -269,7 +272,6 @@ function extractNameLocal(text) {
       }
     }
   }
-  
   console.log(`   ⚠️  No se detectó nombre en: "${text}"`);
   return null;
 }
@@ -286,11 +288,8 @@ function extractCargoLocal(text) {
   return null;
 }
 
-// ============ DETECTAR RESOLUCIÓN ============
-
 function detectResolution(text) {
   const t = normalizeText(text);
-  
   const resolutionPatterns = [
     /\b(ya\s+(arreglamos|solucionamos|resolvimos|reparamos|hicimos|terminamos|quedó\s+listo|está\s+listo))\b/i,
     /\b(esto\s+ya\s+(se\s+)?(arregló|solucionó|resolvió|hizo|terminó))\b/i,
@@ -301,66 +300,43 @@ function detectResolution(text) {
     /\b(se\s+arregló|se\s+solucionó|se\s+resolvió)\b/i,
     /\b(quedó\s+(arreglado|solucionado|resuelto|listo))\b/i
   ];
-  
   for (const pattern of resolutionPatterns) {
-    if (pattern.test(t)) {
-      return true;
-    }
+    if (pattern.test(t)) return true;
   }
-  
   return false;
 }
 
-// ============ DETECTAR ESTADO DE EMPLEADO ============
-
 function detectEmployeeState(text) {
   const t = normalizeText(text);
-  
   if (/\b(estoy\s+(trabajando|encargando|viendo|revisando|atendiendo|en\s+eso))\b/i.test(t) ||
       /\b(ya\s+estoy\s+(en\s+eso|encargado|revisando))\b/i.test(t) ||
       /\b(lo\s+estoy\s+(viendo|revisando|atendiendo))\b/i.test(t)) {
     return 'trabajando';
   }
-  
   if (/\b(estoy\s+ocupado|tengo\s+varios\s+casos|no\s+puedo\s+ahora|estoy\s+lleno)\b/i.test(t)) {
     return 'ocupado';
   }
-  
   if (/\b(ya\s+terminé|ya\s+estoy\s+libre|disponible|listo\s+para\s+otro)\b/i.test(t)) {
     return 'disponible';
   }
-  
   return null;
 }
 
-// ============ DETECTAR UBICACIÓN ============
-
-// ============ DETECTAR UBICACIÓN MEJORADA ============
-
 function detectLocation(text) {
   const t = text.trim();
-  
-  // Patrones más flexibles para detectar ubicaciones
   const patterns = [
-    // "en el piso X, área de Y"
     /(?:en|está en|es en|ubicado en|se encuentra en)\s+(el\s+)?(piso\s+\d+|área\s+de\s+\w+|oficina\s+de\s+\w+|sala\s+\w+|departamento\s+de\s+\w+)(?:\s*,\s*(.+?))?(?:\.|,|$)/i,
-    // "piso X por el área de Y"
     /(piso\s+\d+)\s+(por|cerca de|al lado de|frente a)\s+(el\s+)?(área\s+de\s+\w+|oficina\s+de\s+\w+|sala\s+\w+)(?:\.|,|$)/i,
-    // "área de X" o "oficina de X"
     /(?:área|oficina|sala|departamento|sección)\s+de\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+)?)(?:\.|,|$)/i,
-    // "piso X"
     /piso\s+(\d+|[a-z]+)(?:\.|,|$)/i,
-    // Ubicación genérica después de preposición
     /(?:en|por|cerca de|al lado de|frente a)\s+([a-záéíóúñ]+(?:\s+[a-záéíóúñ]+){0,5})(?:\.|,|$)/i
   ];
   
   for (const pattern of patterns) {
     const match = t.match(pattern);
     if (match) {
-      // Construir la ubicación completa
       const parts = match.slice(1).filter(p => p && p.length > 1);
       const location = parts.join(', ').trim();
-      
       if (location.length > 2 && location.length < 150) {
         console.log(`   📍 Ubicación detectada: "${location}"`);
         return location;
@@ -368,23 +344,19 @@ function detectLocation(text) {
     }
   }
   
-  // Si el mensaje es corto y parece una ubicación (no es un saludo o pregunta)
   if (t.length < 80 && 
       !/^(hola|gracias|ok|si|no|buenos|buenas|que|como|cuando|donde)/i.test(t) &&
       !/\?$/.test(t)) {
-    // Verificar si contiene palabras de ubicación
     if (/(piso|área|oficina|sala|departamento|edificio|caja|cajas|recepción|entrada|salida|baño|cocina|comedor)/i.test(t)) {
       console.log(`   📍 Ubicación detectada (mensaje corto): "${t}"`);
       return t;
     }
   }
-  
   return null;
 }
 
 async function extractRegistrationData(text) {
   console.log(`   🔍 Extrayendo datos...`);
-  
   let nombre = extractNameLocal(text);
   let area = safeArea(text);
   let cargo = extractCargoLocal(text);
@@ -411,14 +383,18 @@ Mensaje: "${text}"`;
 function fallbackDetectIntent(text, context = {}) {
   const t = normalizeText(text);
   const ticketId = parseTicketTag(text);
+  
+  // Soporta tanto activeTickets (array) como activeTicket (objeto) por compatibilidad
+  const activeTickets = context.activeTickets || (context.activeTicket ? [context.activeTicket] : []);
+  const primaryTicket = activeTickets[0] || null;
 
   // PRIORIDAD 0: Detectar resolución
-  if (context.activeTicket && context.activeTicket.assignedTo === context.employeePhone) {
+  if (primaryTicket && primaryTicket.assignedTo === context.employeePhone) {
     if (detectResolution(text)) {
-      console.log(`   ✅ Resolución detectada para ticket #T-${context.activeTicket.id}`);
+      console.log(`   ✅ Resolución detectada para ticket #T-${primaryTicket.id}`);
       return { 
         intencion: 'resolver_ticket', 
-        ticket_id: context.activeTicket.id,
+        ticket_id: activeTickets.length === 1 ? primaryTicket.id : null,
         descripcion: text,
         confianza: 90 
       };
@@ -430,7 +406,7 @@ function fallbackDetectIntent(text, context = {}) {
       return { 
         intencion: 'cambiar_estado_empleado',
         estado: empState,
-        ticket_id: context.activeTicket.id,
+        ticket_id: activeTickets.length === 1 ? primaryTicket.id : null,
         confianza: 85
       };
     }
@@ -453,49 +429,46 @@ function fallbackDetectIntent(text, context = {}) {
   }
 
   // PRIORIDAD 1: Si hay ticket activo y el usuario es el SOLICITANTE, es aclaración
-  if (context.activeTicket && context.activeTicket.requesterPhone === context.employeePhone) {
-    console.log(`   📝 Aclaración del solicitante para ticket #T-${context.activeTicket.id}`);
+  if (primaryTicket && primaryTicket.requesterPhone === context.employeePhone) {
+    console.log(`   📝 Aclaración del solicitante para ticket #T-${primaryTicket.id}`);
     return { 
       intencion: 'aclaracion_automatica', 
-      ticket_id: context.activeTicket.id,
+      ticket_id: primaryTicket.id,
       descripcion: text,
       confianza: 90 
     };
   }
 
   // PRIORIDAD 2: Si el empleado asignado habla sobre su ticket activo
-  if (context.activeTicket && context.activeTicket.assignedTo === context.employeePhone) {
-    console.log(`   📝 Aclaración automática para ticket #T-${context.activeTicket.id}`);
+  if (primaryTicket && primaryTicket.assignedTo === context.employeePhone) {
+    console.log(`   📝 Aclaración automática para ticket #T-${primaryTicket.id}`);
     return { 
       intencion: 'aclaracion_automatica', 
-      ticket_id: context.activeTicket.id,
+      ticket_id: primaryTicket.id,
       descripcion: text,
       confianza: 90 
     };
   }
 
   // PRIORIDAD 3: Si hay ticket activo y el mensaje parece ser información adicional
-  if (context.activeTicket) {
-    // Detectar si es información adicional (no un problema nuevo)
+  if (primaryTicket) {
     const additionalInfo = /^(mira|oye|ah|por\s+cierto|tambien|ademas|sobre|respecto|referente|relacionado|lo\s+que|eso|eso\s+era|era\s+que|resulta\s+que|pasa\s+que|es\s+que)/i;
     
     if (additionalInfo.test(t) || t.length < 100) {
-      console.log(`   📝 Información adicional para ticket #T-${context.activeTicket.id}`);
+      console.log(`   📝 Información adicional para ticket #T-${primaryTicket.id}`);
       return { 
         intencion: 'aclaracion_automatica', 
-        ticket_id: context.activeTicket.id,
+        ticket_id: primaryTicket.id,
         descripcion: text,
         confianza: 85 
       };
     }
     
-    // Referencias explícitas a tickets
     const ticketRef = /(ticket\s+(anterior|activo|actual|este)|el\s+ticket|mi\s+ticket|actualizar|agregar|añadir|informar|comentar)/i;
-    
     if (ticketRef.test(t)) {
       return { 
         intencion: 'actualizar_ticket', 
-        ticket_id: context.activeTicket.id, 
+        ticket_id: primaryTicket.id, 
         urgencia: detectUrgencyFromText(text), 
         descripcion: text, 
         confianza: 90 
@@ -506,10 +479,9 @@ function fallbackDetectIntent(text, context = {}) {
   let area = safeArea(text);
   const urgencia = detectUrgencyFromText(text);
 
-  // Solo crear ticket nuevo si NO hay ticket activo reciente del mismo usuario
   const problemKeywords = /(no\s?(puedo|funciona|hay|entra|sirve|anda|imprime|conecta|carga)|error|falla|problema|ayuda|solicito|requiero|necesito|caida|sin\s?(acceso|servicio|internet|correo|tinta|toner)|computadora|pc|equipo|molestia|molesto|lento|demora|no\s?me\s?deja|no\s?puedo\s?acceder|no\s?carga|no\s?conecta|impresora|tinta|toner|falta|se\s?quedo|se\s?queda|papel|atascada|no\s?imprime|no\s?escanea|no\s?copia)/i;
   
-  if (problemKeywords.test(t) && t.length >= 5 && !context.activeTicket) {
+  if (problemKeywords.test(t) && t.length >= 5 && activeTickets.length === 0) {
     return { 
       intencion: 'crear_ticket', 
       area, 
@@ -522,7 +494,7 @@ function fallbackDetectIntent(text, context = {}) {
   }
 
   const indirectProblem = /(le\s?hace\s?falta|le\s?falta|necesita|requiere|se\s?acabo|se\s?termino|sin\s+\w+|no\s?tengo)/i;
-  if (indirectProblem.test(t) && t.length >= 5 && !context.activeTicket) {
+  if (indirectProblem.test(t) && t.length >= 5 && activeTickets.length === 0) {
     return { 
       intencion: 'crear_ticket', 
       area, 
@@ -541,10 +513,11 @@ function fallbackDetectIntent(text, context = {}) {
   return { intencion: 'otro', descripcion: text, confianza: 20 };
 }
 
-async function detectIntent(text, { employee, activeTicket, history = [], employeePhone = null }) {
-  const fallback = fallbackDetectIntent(text, { activeTicket, employeePhone, employee });
+async function detectIntent(text, { employee, activeTickets = [], activeTicket = null, history = [], employeePhone = null }) {
+  const tickets = activeTickets.length > 0 ? activeTickets : (activeTicket ? [activeTicket] : []);
+  const fallback = fallbackDetectIntent(text, { activeTickets: tickets, activeTicket: tickets[0] || null, employeePhone, employee });
 
-  if (fallback.confianza >= 75) {
+  if (fallback && fallback.confianza >= 75) {
     console.log(`   ✅ Fallback (${fallback.confianza}%)`);
     return fallback;
   }
@@ -553,54 +526,87 @@ async function detectIntent(text, { employee, activeTicket, history = [], employ
   const historyText = history.slice(-4).map(m => `${m.from === 'bot' ? 'Bot' : 'Usuario'}: ${m.text}`).join(' | ');
   const areasList = config.areas.join(', ');
 
+  let ticketsContext = 'Ninguno';
+  if (tickets.length > 0) {
+    ticketsContext = tickets.map(t => `ID: ${t.id}, Título: "${t.title || 'Sin título'}", Área: ${t.area || 'Desconocida'}`).join(' | ');
+  }
+
   const prompt = `Clasifica el mensaje en un chat de soporte CONATEL.
 Contexto: ${historyText || '(inicio)'}
 Mensaje: "${text}"
 Usuario: ${employee ? employee.name : 'no'}
-Ticket activo: ${activeTicket ? '#' + activeTicket.id : 'no'}
+Tickets activos del usuario: ${ticketsContext}
 Áreas disponibles: ${areasList}
 
+Reglas:
+1. Si el usuario tiene VARIOS tickets activos y su mensaje es ambiguo (ej: "ya lo arreglé"), devuelve intencion: "aclarar_ticket".
+2. Si menciona un número o el contexto apunta claramente a un ticket activo, usa intencion: "actualizar_ticket" o "resolver_ticket" y pon el "ticket_id" correcto.
+
 Devuelve JSON:
-{"intencion":"saludo|crear_ticket|actualizar_ticket|consulta|agradecimiento|despedida|aclaracion|otro","area":"string|null","urgencia":"baja|media|alta|critica|null","titulo":"string|null","descripcion":"string|null","confianza":0,"es_problema":false}`;
+{"intencion":"saludo|crear_ticket|actualizar_ticket|resolver_ticket|aclarar_ticket|consulta|agradecimiento|despedida|aclaracion|otro","ticket_id":null,"area":"string|null","urgencia":"baja|media|alta|critica|null","titulo":"string|null","descripcion":"string|null","confianza":0,"es_problema":false,"requiere_ubicacion":false}`;
 
   const ai = await gemini(prompt, { json: true });
 
-  if (!ai) {
+  if (!ai || !ai.intencion) {
     console.log(`   🔄 Fallback`);
-    return fallback;
+    return fallback || { intencion: 'otro', descripcion: text, confianza: 20 };
   }
 
   const merged = { ...fallback, ...ai };
-  merged.area = safeArea(merged.area) || fallback.area;
+  merged.area = safeArea(merged.area) || (fallback ? fallback.area : null);
   merged.urgencia = merged.urgencia || detectUrgencyFromText(text);
-  merged.confianza = Number(merged.confianza) || fallback.confianza;
+  merged.confianza = Number(merged.confianza) || (fallback ? fallback.confianza : 50);
+
+  // Si la IA detectó "aclarar_ticket" pero hay solo 1 ticket, forzamos a actualizar ese.
+  if (merged.intencion === 'aclarar_ticket' && tickets.length === 1) {
+    merged.intencion = 'actualizar_ticket';
+    merged.ticket_id = tickets[0].id;
+  }
 
   return merged;
 }
 
-async function generateResponse({ intent, employee, activeTicket, userMessage, context = {}, history = [] }) {
+async function generateResponse({ intent, employee, activeTickets = [], activeTicket = null, userMessage, context = {}, history = [] }) {
+  const tickets = activeTickets.length > 0 ? activeTickets : (activeTicket ? [activeTicket] : []);
+
+  // 1. Respuestas 100% locales e instantáneas (Sin llamar a la IA)
   if (['saludo', 'agradecimiento', 'despedida'].includes(intent.intencion)) {
-    return getRandomResponse(intent.intencion);
+    return getRandomResponse(intent.intencion === 'saludo' && employee ? 'saludo_registrado' : intent.intencion, { nombre: employee?.name || '' });
+  }
+
+  // 2. Fallbacks inteligentes si la confianza es baja (Evita llamar a Gemini y fallar con 503/Abort)
+  if (intent.confianza < 50 && intent.intencion === 'otro') {
+    return getRandomResponse('no_entendido');
+  }
+  if (intent.confianza < 50 && intent.intencion === 'consulta') {
+    return '¿Podrías darme un poco más de detalle para ayudarte mejor?';
+  }
+
+  // 3. Lógica específica para múltiples tickets
+  if (intent.intencion === 'aclarar_ticket' && tickets.length >= 2) {
+    const t1 = tickets[0].title || `Ticket #${tickets[0].id}`;
+    const t2 = tickets[1].title || `Ticket #${tickets[1].id}`;
+    return getRandomResponse('multi_ticket_ambiguo', { ticket1: t1, ticket2: t2 });
   }
 
   if (intent.intencion === 'crear_ticket' && intent.es_problema) {
     const location = detectLocation(userMessage);
-    
     if (!location) {
-      const responses = [
-        'Entiendo, lo voy a revisar. ¿En qué lugar es el problema?',
-        'Ok, lo anoto. ¿Dónde exactamente ocurre el problema?',
-        'Perfecto, lo estamos viendo. ¿Me dices en qué área o lugar es?',
-        'Entendido. ¿Podrías decirme en qué lugar específico es el problema?'
-      ];
-      return responses[Math.floor(Math.random() * responses.length)];
+      return getRandomResponse('pedir_ubicacion');
     }
-    
     return getRandomResponse('problema_detectado');
   }
 
-  const historyText = history.slice(-6).map(m => `${m.from === 'bot' ? 'Bot' : 'Usuario'}: ${m.text}`).join('\n');
+  if (intent.intencion === 'resolver_ticket' && intent.ticket_id) {
+    return `¡Excelente! Procedo a marcar el ticket #${intent.ticket_id} como resuelto. ¿Necesitas algo más?`;
+  }
 
+  if ((intent.intencion === 'actualizar_ticket' || intent.intencion === 'aclaracion_automatica') && intent.ticket_id) {
+    return `Entendido. Agrego esta información al ticket #${intent.ticket_id} y notifico al equipo.`;
+  }
+
+  // 4. Solo si la confianza es alta, intentamos generar con IA
+  const historyText = history.slice(-6).map(m => `${m.from === 'bot' ? 'Bot' : 'Usuario'}: ${m.text}`).join('\n');
   const prompt = `Eres un asistente de CONATEL. Responde natural, breve (1-2 líneas), sin emojis excesivos.
 
 Historial:
@@ -609,21 +615,23 @@ ${historyText || '(inicio)'}
 Mensaje: "${userMessage}"
 Intención: ${intent.intencion}
 Usuario: ${employee ? employee.name : 'no registrado'}
-Ticket: ${activeTicket ? '#' + activeTicket.id : 'ninguno'}
+Ticket: ${intent.ticket_id ? '#' + intent.ticket_id : 'ninguno'}
 
 Responde como persona real. Sin markdown.`;
 
   const response = await gemini(prompt, { json: false });
 
-  if (response && typeof response === 'string') {
+  if (response && typeof response === 'string' && response.trim().length > 0) {
     return response.trim().replace(/^["']|["']$/g, '');
   }
 
+  // 5. Fallback final si la IA falla completamente
   switch (intent.intencion) {
     case 'crear_ticket':
       return getRandomResponse('problema_detectado');
     case 'actualizar_ticket':
     case 'aclaracion':
+    case 'aclaracion_automatica':
       return 'Listo, tomé nota y lo agrego al ticket.';
     case 'consulta':
       return '¿Puedes darme más detalles?';
