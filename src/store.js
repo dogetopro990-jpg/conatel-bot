@@ -1,9 +1,13 @@
 const SQLStore = require('./database');
 const { nowISO } = require('./utils');
+const config = require('./config'); // ✅ Agregado para acceder a las áreas por defecto
 
 class Store {
   constructor(dbPath) {
     this.sql = new SQLStore(dbPath);
+    
+    // ✅ SEMBRAR ÁREAS POR DEFECTO EN LA BASE DE DATOS AL INICIAR
+    this.sql.seedDefaultAreas(config.areas);
     
     // Cache en memoria para acceso rápido (se sincroniza con SQLite)
     this._cache = {
@@ -273,7 +277,6 @@ class Store {
 
   async save() {
     // No-op: SQLite guarda automáticamente
-    // Mantenemos este método para compatibilidad
     return Promise.resolve();
   }
 

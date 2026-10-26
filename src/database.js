@@ -237,8 +237,17 @@ class SQLStore {
     return this.getTicket(id);
   }
 
+  // ✅ DELETE TICKET CORREGIDO CON TRANSACCIÓN
   deleteTicket(id) {
-    this.db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+    const deleteTransaction = this.db.transaction(() => {
+      // 1. Borrar mensajes del ticket
+      this.db.prepare('DELETE FROM ticket_messages WHERE ticket_id = ?').run(id);
+      // 2. Borrar referencia en active_tickets
+      this.db.prepare('DELETE FROM active_tickets WHERE ticket_id = ?').run(id);
+      // 3. Borrar el ticket principal
+      this.db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+    });
+    deleteTransaction();
   }
 
   renumberTickets() {
@@ -356,6 +365,18 @@ class SQLStore {
 
   removeCustomArea(name) {
     this.db.prepare('DELETE FROM areas WHERE name = ? AND is_custom = 1').run(name);
+  }
+
+  // Sembrar áreas por defecto en la BD
+  seedDefaultAreas(defaultAreas) {
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO areas (name, is_custom, created_at)
+      VALUES (?, 0, ?)
+    `);
+    const now = nowISO();
+    for (const area of defaultAreas) {
+      stmt.run(area, now);
+    }
   }
 
   // EXPLORADOR SQL

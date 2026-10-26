@@ -8,313 +8,112 @@
   <style>
     .db-layout {
       display: grid;
-      grid-template-columns: 260px 1fr;
-      gap: 16px;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
       height: calc(100vh - 140px);
-      min-height: 500px;
     }
-
     @media (max-width: 900px) {
-      .db-layout {
-        grid-template-columns: 1fr;
-        height: auto;
-      }
+      .db-layout { grid-template-columns: 1fr; height: auto; }
     }
-
+    
     .db-sidebar {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .db-sidebar-header {
-      padding: 14px 16px;
-      background: var(--bg-tertiary);
-      border-bottom: 1px solid var(--border);
-      font-weight: 600;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: var(--text-secondary);
-    }
-
-    .db-table-list {
+      padding: 20px;
       overflow-y: auto;
-      flex: 1;
     }
-
-    .db-table-item {
-      padding: 10px 16px;
+    .db-sidebar h3 { margin-top: 0; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    
+    .table-list { list-style: none; padding: 0; margin: 16px 0; }
+    .table-item {
+      padding: 10px 12px;
+      border-radius: var(--radius);
       cursor: pointer;
-      border-bottom: 1px solid var(--border);
-      transition: all 0.15s;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
       font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+      margin-bottom: 4px;
     }
-
-    .db-table-item:hover {
-      background: var(--bg-hover);
-    }
-
-    .db-table-item.active {
-      background: var(--primary-bg);
-      color: var(--primary);
-      font-weight: 600;
-      border-left: 3px solid var(--primary);
-    }
-
-    .db-table-item .count {
-      font-size: 11px;
+    .table-item:hover { background: var(--bg-hover); }
+    .table-item.active { background: var(--primary); color: white; }
+    
+    .help-panel {
       background: var(--bg-tertiary);
-      padding: 2px 8px;
-      border-radius: 10px;
-      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-top: 16px;
+      font-size: 13px;
+      line-height: 1.6;
     }
+    .help-panel h4 { margin-top: 0; color: var(--primary); }
+    .help-panel code { background: var(--bg-primary); padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 
     .db-main {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      min-height: 0;
+      gap: 16px;
     }
-
-    .sql-editor {
+    .sql-editor-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      overflow: hidden;
+      padding: 20px;
     }
-
-    .sql-editor-header {
-      padding: 10px 16px;
-      background: var(--bg-tertiary);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .sql-editor-header h4 {
-      font-size: 14px;
-      font-weight: 600;
-      margin: 0;
-    }
-
-    .sql-editor-actions {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-
-    .sql-editor-actions button {
-      padding: 6px 12px;
-      font-size: 12px;
-    }
-
     .sql-textarea {
       width: 100%;
       min-height: 120px;
       background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      font-size: 14px;
       color: var(--text-primary);
-      border: none;
-      padding: 12px 16px;
-      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-      font-size: 13px;
-      line-height: 1.5;
       resize: vertical;
+      margin-bottom: 12px;
     }
-
-    .sql-textarea:focus {
-      outline: none;
-      box-shadow: inset 0 0 0 2px var(--primary-bg);
-    }
-
-    .results-panel {
+    .sql-textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    
+    .results-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
       border-radius: var(--radius-lg);
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 300px;
-      overflow: hidden;
-    }
-
-    .results-tabs {
-      display: flex;
-      background: var(--bg-tertiary);
-      border-bottom: 1px solid var(--border);
-      overflow-x: auto;
-    }
-
-    .results-tab {
-      padding: 10px 18px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--text-secondary);
-      border-bottom: 2px solid transparent;
-      white-space: nowrap;
-      transition: all 0.15s;
-    }
-
-    .results-tab:hover {
-      color: var(--text-primary);
-      background: var(--bg-hover);
-    }
-
-    .results-tab.active {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
-      background: var(--bg-secondary);
-    }
-
-    .results-content {
+      padding: 20px;
       flex: 1;
       overflow: auto;
-      padding: 16px;
     }
-
     .results-table {
       width: 100%;
       border-collapse: collapse;
       font-size: 13px;
-      font-family: 'Consolas', monospace;
     }
-
+    .results-table th, .results-table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
     .results-table th {
       background: var(--bg-tertiary);
-      padding: 8px 12px;
-      text-align: left;
       font-weight: 600;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 2px solid var(--border);
       position: sticky;
       top: 0;
-      z-index: 1;
     }
-
-    .results-table td {
-      padding: 6px 12px;
-      border-bottom: 1px solid var(--border);
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .results-table tr:hover td {
-      background: var(--bg-hover);
-    }
-
-    .sql-code {
-      background: var(--bg-primary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      font-family: 'Consolas', monospace;
-      font-size: 13px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      overflow-x: auto;
-      color: var(--text-primary);
-    }
-
-    .sql-keyword { color: #d73a49; font-weight: 600; }
-    .sql-string { color: #032f62; }
-    .sql-number { color: #005cc5; }
-    .sql-comment { color: #6a737d; font-style: italic; }
-
-    [data-theme="dark"] .sql-keyword { color: #ff7b72; }
-    [data-theme="dark"] .sql-string { color: #a5d6ff; }
-    [data-theme="dark"] .sql-number { color: #79c0ff; }
-    [data-theme="dark"] .sql-comment { color: #8b949e; }
-
-    .schema-table {
-      margin-bottom: 24px;
-    }
-
-    .schema-table h4 {
-      font-size: 14px;
-      margin-bottom: 8px;
-      color: var(--primary);
-      font-family: 'Consolas', monospace;
-    }
-
-    .schema-columns {
-      background: var(--bg-primary);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-
-    .schema-column {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
-      font-size: 13px;
-      display: grid;
-      grid-template-columns: 1fr 120px 80px;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .schema-column:last-child {
-      border-bottom: none;
-    }
-
-    .schema-column:hover {
-      background: var(--bg-hover);
-    }
-
-    .col-name {
-      font-family: 'Consolas', monospace;
-      font-weight: 500;
-    }
-
-    .col-type {
-      color: var(--text-muted);
-      font-size: 12px;
-      font-family: 'Consolas', monospace;
-    }
-
-    .col-key {
-      font-size: 11px;
-      text-align: center;
-    }
-
-    .results-info {
-      padding: 8px 16px;
-      background: var(--bg-tertiary);
-      border-top: 1px solid var(--border);
-      font-size: 12px;
-      color: var(--text-muted);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .warning-banner {
-      background: var(--warning-bg);
-      border: 1px solid var(--warning);
-      color: #92400e;
-      padding: 12px 16px;
+    .results-table tr:hover { background: var(--bg-hover); }
+    
+    .status-msg {
+      padding: 10px 14px;
       border-radius: var(--radius);
       font-size: 13px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
+      display: none;
     }
-
-    [data-theme="dark"] .warning-banner {
-      color: #fbbf24;
-    }
+    .status-msg.success { background: var(--success-bg); color: var(--success); display: block; }
+    .status-msg.error { background: var(--error-bg); color: var(--error); display: block; }
   </style>
 </head>
 <body>
@@ -330,14 +129,11 @@
     <div class="nav-links" id="navLinks">
       <a href="/index.html">Dashboard</a>
       <a href="/tickets.html">Tickets</a>
-      <a href="/resolved.html">Resueltos</a>
       <a href="/employees.html">Empleados</a>
-      <a href="/messages.html">Mensajes</a>
       <a href="/whatsapp.html">WhatsApp</a>
       <a href="/connection.html">Conexión</a>
       <a href="/database.html" class="active">Base de datos</a>
       <a href="/settings.html" id="settingsLink">Config</a>
-      <a href="/users.html" id="usersLink">Usuarios</a>
     </div>
     <div class="nav-right">
       <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
@@ -349,57 +145,51 @@
     </div>
   </nav>
 
-  <main>
-    <div class="warning-banner">
-      ⚠️ <strong>Precaución:</strong> Tienes acceso directo a la base de datos. Las consultas <code>UPDATE</code> o <code>DELETE</code> son permanentes.
+  <main style="max-width: 1400px; margin: 0 auto; padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <div>
+        <h2 style="margin: 0; font-size: 24px;">🗄️ Explorador de Base de Datos</h2>
+        <p style="margin: 4px 0 0; color: var(--text-secondary); font-size: 14px;">Consulta y administra la información del sistema de forma segura.</p>
+      </div>
+      <button class="btn btn-secondary" onclick="loadSchema()">🔄 Actualizar Esquema</button>
     </div>
 
     <div class="db-layout">
-      <!-- Sidebar con tablas -->
+      <!-- Sidebar: Diccionario de Datos -->
       <div class="db-sidebar">
-        <div class="db-sidebar-header">📂 Tablas</div>
-        <div class="db-table-list" id="tableList">
-          <div class="loading"><div class="spinner"></div></div>
+        <h3>📚 Diccionario de Datos</h3>
+        <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Haz clic en una tabla para ver su descripción y columnas.</p>
+        
+        <ul class="table-list" id="tableList">
+          <li class="text-muted" style="padding: 10px;">Cargando tablas...</li>
+        </ul>
+
+        <div id="helpPanel" class="help-panel" style="display: none;">
+          <h4 id="helpTitle">Nombre de Tabla</h4>
+          <p id="helpDesc">Descripción de la tabla.</p>
+          <strong>Columnas principales:</strong>
+          <ul id="helpColumns" style="margin: 8px 0 0 20px; padding: 0;"></ul>
         </div>
       </div>
 
-      <!-- Panel principal -->
+      <!-- Main: Editor y Resultados -->
       <div class="db-main">
-        <!-- Editor SQL -->
-        <div class="sql-editor">
-          <div class="sql-editor-header">
-            <h4>📝 Editor SQL</h4>
-            <div class="sql-editor-actions">
-              <button class="btn btn-secondary" onclick="formatSQL()">🧹 Formatear</button>
-              <button class="btn btn-secondary" onclick="clearEditor()">🗑️ Limpiar</button>
-              <button class="btn btn-primary" onclick="executeQuery()">▶️ Ejecutar</button>
-            </div>
+        <div class="sql-editor-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 16px;">💻 Editor SQL</h3>
+            <span style="font-size: 12px; color: var(--text-secondary);">Solo consultas SELECT son permitidas por seguridad.</span>
           </div>
-          <textarea id="sqlInput" class="sql-textarea" placeholder="Escribe tu consulta SQL aquí...
-
-Ejemplos:
-SELECT * FROM tickets WHERE status = 'abierta' LIMIT 10;
-SELECT COUNT(*) FROM employees;
-SELECT area, COUNT(*) as total FROM tickets GROUP BY area;"></textarea>
+          <textarea id="sqlInput" class="sql-textarea" placeholder="Escribe tu consulta aquí...&#10;Ejemplo: SELECT * FROM areas;"></textarea>
+          <div style="display: flex; gap: 10px;">
+            <button class="btn btn-primary" onclick="executeQuery()">▶ Ejecutar Consulta</button>
+            <button class="btn btn-secondary" onclick="clearEditor()">Limpiar</button>
+          </div>
         </div>
 
-        <!-- Panel de resultados con pestañas -->
-        <div class="results-panel">
-          <div class="results-tabs">
-            <div class="results-tab active" data-tab="data" onclick="switchTab('data')">📊 Datos</div>
-            <div class="results-tab" data-tab="structure" onclick="switchTab('structure')">🏗️ Estructura</div>
-            <div class="results-tab" data-tab="sql" onclick="switchTab('sql')">💾 SQL de tabla</div>
-            <div class="results-tab" data-tab="schema" onclick="switchTab('schema')">📋 Esquema completo</div>
-          </div>
-          <div class="results-content" id="resultsContent">
-            <div class="empty-state">
-              <div class="empty-state-icon">🔍</div>
-              <p>Ejecuta una consulta o selecciona una tabla para ver los resultados</p>
-            </div>
-          </div>
-          <div class="results-info" id="resultsInfo" style="display: none;">
-            <span id="resultsCount"></span>
-            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="exportCSV()">📥 Exportar CSV</button>
+        <div class="results-card">
+          <div id="statusMsg" class="status-msg"></div>
+          <div id="resultsContainer">
+            <p class="text-muted" style="text-align: center; margin-top: 40px;">Ejecuta una consulta para ver los resultados aquí.</p>
           </div>
         </div>
       </div>
@@ -408,12 +198,9 @@ SELECT area, COUNT(*) as total FROM tickets GROUP BY area;"></textarea>
 
   <script>
     let currentUser = null;
-    let schema = [];
-    let currentTable = null;
-    let lastResults = null;
-    let currentTab = 'data';
+    let schemaData = null;
 
-    // Auth
+    // Auth check
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -424,250 +211,114 @@ SELECT area, COUNT(*) as total FROM tickets GROUP BY area;"></textarea>
         document.getElementById('userName').textContent = user.name;
         document.getElementById('userRole').textContent = user.role;
         if (user.role !== 'admin') {
-          document.body.innerHTML = '<div class="empty-state" style="padding: 100px;"><h2>⛔ Acceso denegado</h2><p>Solo administradores pueden acceder al explorador de base de datos.</p></div>';
-          return;
+          window.location.href = '/index.html'; // Solo admins pueden ver esto
+        } else {
+          loadSchema();
         }
-        loadSchema();
       })
       .catch(() => { window.location.href = '/login.html'; });
 
-    // Tema
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.setAttribute('data-theme', savedTheme);
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('theme') || 'light');
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
-    async function logout() {
-      await fetch('/api/auth/logout', { method: 'POST' });
-      window.location.href = '/login.html';
+    function logout() {
+      fetch('/api/auth/logout', { method: 'POST' }).then(() => window.location.href = '/login.html');
     }
     function toggleMenu() {
       document.getElementById('navLinks').classList.toggle('open');
     }
 
-    // Cargar esquema
+    // ✅ DICCIONARIO DE DATOS ACTUALIZADO PARA COINCIDIR CON TU DATABASE.JS
+    const dataDictionary = {
+      'users': {
+        desc: 'Cuentas de usuario con acceso al panel web de administración.',
+        columns: ['username (Clave primaria)', 'password (Hash)', 'name (Nombre)', 'role (admin/visualizador)', 'created_at']
+      },
+      'employees': {
+        desc: 'Información de todos los empleados registrados para interactuar con el bot.',
+        columns: ['phone (Número, clave primaria)', 'name (Nombre completo)', 'area (Departamento)', 'role', 'notifications_enabled (1=Sí, 0=No)', 'registered_at']
+      },
+      'areas': {
+        desc: 'Lista de áreas de la empresa. Incluye las áreas por defecto y las personalizadas agregadas desde el panel.',
+        columns: ['name (Nombre del área, clave primaria)', 'is_custom (1=Personalizada, 0=Por defecto)', 'created_at']
+      },
+      'tickets': {
+        desc: 'Registro central de todas las solicitudes, incidencias y tickets de soporte.',
+        columns: ['id', 'ticket_id (Código único)', 'requester_phone', 'title', 'description', 'area', 'urgency', 'status', 'assigned_to', 'priority_level', 'score']
+      },
+      'ticket_messages': {
+        desc: 'Historial de conversaciones, respuestas del bot y notas asociadas a cada ticket.',
+        columns: ['id', 'ticket_id (ID del ticket)', 'from_phone', 'from_name', 'text (Contenido)', 'kind (tipo de mensaje)', 'created_at']
+      },
+      'active_tickets': {
+        desc: 'Seguimiento temporal de qué ticket está siendo discutido en cada chat del bot.',
+        columns: ['chat_key (ID del chat)', 'ticket_id', 'expires_at (Fecha de expiración)']
+      },
+      'sessions': {
+        desc: 'Sesiones activas de usuarios logueados en el panel web.',
+        columns: ['session_key', 'step', 'data (JSON)', 'created_at']
+      },
+      'settings': {
+        desc: 'Configuraciones globales del bot y del panel guardadas en la base de datos.',
+        columns: ['key (Nombre de la configuración)', 'value (Valor guardado en JSON)']
+      }
+    };
+
     async function loadSchema() {
       try {
         const res = await fetch('/api/database/schema');
-        schema = await res.json();
+        schemaData = await res.json();
         renderTableList();
-        renderSchemaView();
       } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('tableList').innerHTML = '<p class="text-error" style="padding: 16px;">Error al cargar esquema</p>';
+        showStatus('Error cargando el esquema: ' + error.message, 'error');
       }
     }
 
     function renderTableList() {
       const list = document.getElementById('tableList');
-      if (schema.length === 0) {
-        list.innerHTML = '<p class="text-muted" style="padding: 16px;">No hay tablas</p>';
+      if (!schemaData || schemaData.length === 0) {
+        list.innerHTML = '<li class="text-muted" style="padding: 10px;">No se encontraron tablas</li>';
         return;
       }
-      list.innerHTML = schema.map(t => `
-        <div class="db-table-item" data-table="${t.name}" onclick="selectTable('${t.name}')">
-          <span>📄 ${t.name}</span>
-          <span class="count">${t.rowCount}</span>
-        </div>
+
+      list.innerHTML = schemaData.map(table => `
+        <li class="table-item" onclick="showTableHelp('${table.name}')">
+          📄 ${table.name} <span style="margin-left: auto; font-size: 11px; opacity: 0.7;">${table.rowCount} filas</span>
+        </li>
       `).join('');
     }
 
-    function selectTable(tableName) {
-      currentTable = tableName;
-      // Marcar como activa
-      document.querySelectorAll('.db-table-item').forEach(el => {
-        el.classList.toggle('active', el.dataset.table === tableName);
-      });
-      // Cargar datos de la tabla
-      document.getElementById('sqlInput').value = `SELECT * FROM ${tableName} LIMIT 100;`;
-      switchTab('data');
-      executeQuery();
-    }
+    function showTableHelp(tableName) {
+      // Resaltar activo
+      document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
+      event.currentTarget.classList.add('active');
 
-    function switchTab(tab) {
-      currentTab = tab;
-      document.querySelectorAll('.results-tab').forEach(el => {
-        el.classList.toggle('active', el.dataset.tab === tab);
-      });
-      renderCurrentTab();
-    }
+      const panel = document.getElementById('helpPanel');
+      const info = dataDictionary[tableName] || { desc: 'Tabla del sistema.', columns: ['columna_1', 'columna_2'] };
 
-    function renderCurrentTab() {
-      const content = document.getElementById('resultsContent');
-      const info = document.getElementById('resultsInfo');
-
-      if (currentTab === 'data') {
-        if (lastResults && lastResults.type === 'select' && lastResults.rows.length > 0) {
-          renderDataTable(lastResults.rows);
-          info.style.display = 'flex';
-        } else if (lastResults && lastResults.type === 'write') {
-          content.innerHTML = `<div class="alert alert-success">✅ Consulta ejecutada. Filas afectadas: <strong>${lastResults.changes}</strong></div>`;
-          info.style.display = 'none';
-        } else {
-          content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔍</div><p>Ejecuta una consulta para ver los datos</p></div>';
-          info.style.display = 'none';
-        }
-      } else if (currentTab === 'structure') {
-        if (currentTable) {
-          renderStructureView(currentTable);
-        } else {
-          content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📋</div><p>Selecciona una tabla en el sidebar</p></div>';
-        }
-        info.style.display = 'none';
-      } else if (currentTab === 'sql') {
-        if (currentTable) {
-          renderSQLView(currentTable);
-        } else {
-          content.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💾</div><p>Selecciona una tabla en el sidebar</p></div>';
-        }
-        info.style.display = 'none';
-      } else if (currentTab === 'schema') {
-        renderSchemaView();
-        info.style.display = 'none';
-      }
-    }
-
-    function renderDataTable(rows) {
-      const content = document.getElementById('resultsContent');
-      const info = document.getElementById('resultsInfo');
+      document.getElementById('helpTitle').textContent = `Tabla: ${tableName}`;
+      document.getElementById('helpDesc').textContent = info.desc;
+      document.getElementById('helpColumns').innerHTML = info.columns.map(col => `<li><code>${col}</code></li>`).join('');
       
-      if (rows.length === 0) {
-        content.innerHTML = '<div class="empty-state"><p>La consulta no devolvió resultados</p></div>';
-        info.style.display = 'none';
-        return;
-      }
-
-      const columns = Object.keys(rows[0]);
-      let html = '<div class="table-wrapper"><table class="results-table"><thead><tr>';
-      columns.forEach(col => { html += `<th>${col}</th>`; });
-      html += '</tr></thead><tbody>';
+      panel.style.display = 'block';
       
-      rows.forEach(row => {
-        html += '<tr>';
-        columns.forEach(col => {
-          let val = row[col];
-          if (val === null) val = '<span class="text-muted" style="font-style: italic;">NULL</span>';
-          else if (typeof val === 'object') val = escapeHtml(JSON.stringify(val));
-          else val = escapeHtml(String(val));
-          html += `<td title="${escapeHtml(String(row[col] ?? 'NULL'))}">${val}</td>`;
-        });
-        html += '</tr>';
-      });
-      
-      html += '</tbody></table></div>';
-      content.innerHTML = html;
-      
-      document.getElementById('resultsCount').textContent = `${rows.length} filas • ${columns.length} columnas`;
-      info.style.display = 'flex';
-    }
-
-    function renderStructureView(tableName) {
-      const content = document.getElementById('resultsContent');
-      const table = schema.find(t => t.name === tableName);
-      
-      if (!table) {
-        content.innerHTML = '<div class="empty-state"><p>Tabla no encontrada</p></div>';
-        return;
-      }
-
-      let html = `<div class="schema-table"><h4>📄 ${table.name}</h4><p class="text-muted mb-2">${table.rowCount} registros</p>`;
-      html += '<div class="schema-columns">';
-      html += '<div class="schema-column" style="background: var(--bg-tertiary); font-weight: 600; font-size: 11px; text-transform: uppercase;"><span>Columna</span><span>Tipo</span><span style="text-align:center;">Clave</span></div>';
-      
-      table.columns.forEach(col => {
-        const isPK = col.pk === 1;
-        const isNotNull = col.notnull === 1;
-        let keyBadge = '';
-        if (isPK) keyBadge = '<span class="badge badge-primary">🔑 PK</span>';
-        else if (isNotNull) keyBadge = '<span class="badge badge-warning">NOT NULL</span>';
-        else keyBadge = '<span class="text-muted">NULL</span>';
-        
-        html += `
-          <div class="schema-column">
-            <span class="col-name">${col.name}</span>
-            <span class="col-type">${col.type || 'ANY'}</span>
-            <span class="col-key">${keyBadge}</span>
-          </div>
-        `;
-      });
-      
-      html += '</div></div>';
-      content.innerHTML = html;
-    }
-
-    async function renderSQLView(tableName) {
-      const content = document.getElementById('resultsContent');
-      content.innerHTML = '<div class="loading"><div class="spinner"></div> Generando SQL...</div>';
-      
-      try {
-        const res = await fetch('/api/database/query', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sql: `SELECT sql FROM sqlite_master WHERE type='table' AND name='${tableName}'` })
-        });
-        const data = await res.json();
-        
-        if (data.rows && data.rows[0]) {
-          const sql = data.rows[0].sql;
-          content.innerHTML = `
-            <div class="schema-table">
-              <h4>💾 SQL de creación: ${tableName}</h4>
-              <div class="sql-code">${highlightSQL(sql)}</div>
-              <div class="mt-2 flex gap-1">
-                <button class="btn btn-secondary" onclick="copyToClipboard(\`${sql.replace(/`/g, '\\`')}\`)">📋 Copiar SQL</button>
-              </div>
-            </div>
-          `;
-        } else {
-          content.innerHTML = '<div class="alert alert-error">No se pudo obtener el SQL de la tabla</div>';
-        }
-      } catch (error) {
-        content.innerHTML = `<div class="alert alert-error">Error: ${error.message}</div>`;
-      }
-    }
-
-    function renderSchemaView() {
-      const content = document.getElementById('resultsContent');
-      if (schema.length === 0) {
-        content.innerHTML = '<div class="empty-state"><p>No hay tablas</p></div>';
-        return;
-      }
-
-      let html = '<h3 class="mb-2">📋 Esquema completo de la base de datos</h3>';
-      html += `<p class="text-muted mb-2">${schema.length} tablas • ${schema.reduce((sum, t) => sum + t.rowCount, 0)} registros totales</p>`;
-      
-      schema.forEach(table => {
-        html += `<div class="schema-table"><h4>📄 ${table.name} <span class="badge badge-info">${table.rowCount} rows</span></h4>`;
-        html += '<div class="schema-columns">';
-        table.columns.forEach(col => {
-          const isPK = col.pk === 1;
-          const keyBadge = isPK ? '<span class="badge badge-primary">🔑 PK</span>' : (col.notnull === 1 ? '<span class="text-muted" style="font-size: 11px;">NOT NULL</span>' : '<span class="text-muted" style="font-size: 11px;">NULL</span>');
-          html += `
-            <div class="schema-column">
-              <span class="col-name">${col.name}</span>
-              <span class="col-type">${col.type || 'ANY'}</span>
-              <span class="col-key">${keyBadge}</span>
-            </div>
-          `;
-        });
-        html += '</div></div>';
-      });
-      
-      content.innerHTML = html;
+      // Sugerir consulta en el editor
+      document.getElementById('sqlInput').value = `SELECT * FROM ${tableName} LIMIT 10;`;
     }
 
     async function executeQuery() {
       const sql = document.getElementById('sqlInput').value.trim();
-      if (!sql) return;
+      if (!sql) {
+        showStatus('Por favor escribe una consulta SQL.', 'error');
+        return;
+      }
 
-      const content = document.getElementById('resultsContent');
-      content.innerHTML = '<div class="loading"><div class="spinner"></div> Ejecutando consulta...</div>';
-      document.getElementById('resultsInfo').style.display = 'none';
-
-      const startTime = Date.now();
+      showStatus('Ejecutando...', 'success');
+      document.getElementById('resultsContainer').innerHTML = '<p class="text-muted" style="text-align: center;">Procesando...</p>';
 
       try {
         const res = await fetch('/api/database/query', {
@@ -676,99 +327,57 @@ SELECT area, COUNT(*) as total FROM tickets GROUP BY area;"></textarea>
           body: JSON.stringify({ sql })
         });
         const data = await res.json();
-        const duration = Date.now() - startTime;
 
         if (!res.ok) {
-          content.innerHTML = `<div class="alert alert-error">❌ Error: ${escapeHtml(data.error)}</div>`;
-          return;
+          throw new Error(data.error || 'Error en la consulta');
         }
 
-        lastResults = data;
-        switchTab('data');
-        
-        // Mostrar tiempo de ejecución
-        document.getElementById('resultsCount').textContent += ` • ${duration}ms`;
+        showStatus(`✅ Consulta exitosa. Filas devueltas: ${data.rows ? data.rows.length : 0}`, 'success');
+        renderResults(data);
       } catch (error) {
-        content.innerHTML = `<div class="alert alert-error">❌ Error de red: ${error.message}</div>`;
+        showStatus('❌ Error: ' + error.message, 'error');
+        document.getElementById('resultsContainer').innerHTML = '';
       }
     }
 
-    function formatSQL() {
-      const textarea = document.getElementById('sqlInput');
-      let sql = textarea.value;
-      const keywords = ['SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'ORDER BY', 'GROUP BY', 'HAVING', 'LIMIT', 'INSERT INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE FROM', 'CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'AND', 'OR'];
+    function renderResults(data) {
+      const container = document.getElementById('resultsContainer');
+      if (!data.rows || data.rows.length === 0) {
+        container.innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 20px;">La consulta no devolvió resultados.</p>';
+        return;
+      }
+
+      const columns = Object.keys(data.rows[0]);
+      let html = '<div style="overflow-x: auto;"><table class="results-table"><thead><tr>';
+      columns.forEach(col => { html += `<th>${col}</th>`; });
+      html += '</tr></thead><tbody>';
       
-      keywords.forEach(kw => {
-        const regex = new RegExp(`\\b${kw}\\b`, 'gi');
-        sql = sql.replace(regex, `\n${kw}`);
+      data.rows.forEach(row => {
+        html += '<tr>';
+        columns.forEach(col => {
+          let val = row[col];
+          if (val === null) val = '<span style="color: var(--text-muted);">NULL</span>';
+          else if (typeof val === 'object') val = JSON.stringify(val);
+          html += `<td>${val}</td>`;
+        });
+        html += '</tr>';
       });
       
-      textarea.value = sql.trim().replace(/\n{2,}/g, '\n');
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    function showStatus(msg, type) {
+      const el = document.getElementById('statusMsg');
+      el.textContent = msg;
+      el.className = 'status-msg ' + type;
     }
 
     function clearEditor() {
       document.getElementById('sqlInput').value = '';
+      document.getElementById('resultsContainer').innerHTML = '<p class="text-muted" style="text-align: center; margin-top: 40px;">Ejecuta una consulta para ver los resultados aquí.</p>';
+      document.getElementById('statusMsg').style.display = 'none';
     }
-
-    function highlightSQL(sql) {
-      let html = escapeHtml(sql);
-      const keywords = ['CREATE', 'TABLE', 'INTEGER', 'TEXT', 'REAL', 'BLOB', 'PRIMARY', 'KEY', 'AUTOINCREMENT', 'NOT', 'NULL', 'DEFAULT', 'FOREIGN', 'REFERENCES', 'UNIQUE', 'CHECK', 'INDEX', 'SELECT', 'FROM', 'WHERE', 'INSERT', 'UPDATE', 'DELETE'];
-      keywords.forEach(kw => {
-        const regex = new RegExp(`\\b${kw}\\b`, 'gi');
-        html = html.replace(regex, `<span class="sql-keyword">${kw}</span>`);
-      });
-      html = html.replace(/'([^']*)'/g, `<span class="sql-string">'$1'</span>`);
-      html = html.replace(/\b(\d+)\b/g, `<span class="sql-number">$1</span>`);
-      html = html.replace(/--(.*)$/gm, `<span class="sql-comment">--$1</span>`);
-      return html;
-    }
-
-    function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
-
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => {
-        alert('✓ SQL copiado al portapapeles');
-      });
-    }
-
-    function exportCSV() {
-      if (!lastResults || !lastResults.rows || lastResults.rows.length === 0) {
-        alert('No hay datos para exportar');
-        return;
-      }
-
-      const rows = lastResults.rows;
-      const columns = Object.keys(rows[0]);
-      let csv = columns.join(',') + '\n';
-      
-      rows.forEach(row => {
-        const values = columns.map(col => {
-          const val = row[col];
-          if (val === null) return '';
-          const str = String(val).replace(/"/g, '""');
-          return `"${str}"`;
-        });
-        csv += values.join(',') + '\n';
-      });
-
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `export_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.csv`;
-      link.click();
-    }
-
-    // Ctrl+Enter para ejecutar
-    document.getElementById('sqlInput').addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        executeQuery();
-      }
-    });
   </script>
 </body>
 </html>

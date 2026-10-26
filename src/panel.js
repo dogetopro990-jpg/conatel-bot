@@ -64,102 +64,29 @@ function serveFile(req, res, pathname) {
   try { relative = decodeURIComponent(pathname); } catch {}
 
   const host = req.headers.host || '';
-  const isLocalTunnel = host.includes('loca.lt') || host.includes('serveo.net') || host.includes('localhost.run');
+  const isLocalTunnel = host.includes('loca.lt');
 
-  // ✅ SI VIENE DE LOCALTUNNEL Y PIDE RAÍZ O LOGIN -> SERVIR BYPASS AUTOMÁTICO
-  if (isLocalTunnel && (relative === '/' || relative === '' || relative === '/login.html')) {
-    // Verificar si ya tiene la cookie de bypass
-    const hasBypass = getCookie(req, 'tunnel_bypass') === 'true';
-    
-    if (hasBypass) {
-      // Ya tiene bypass, servir tunnel-welcome.html directamente
-      const welcomePath = path.join(PUBLIC_DIR, 'tunnel-welcome.html');
-      fs.readFile(welcomePath, (err, data) => {
-        if (err) {
-          const loginPath = path.join(PUBLIC_DIR, 'login.html');
-          fs.readFile(loginPath, (err2, data2) => {
-            if (err2) return json(res, 404, { error: 'Panel no encontrado' });
-            res.writeHead(200, { 'Content-Type': MIME['.html'] });
-            res.end(data2);
-          });
-          return;
-        }
-        res.writeHead(200, { 'Content-Type': MIME['.html'] });
-        res.end(data);
-      });
-      return;
-    }
-    
-    // No tiene bypass, servir página que lo activa automáticamente
-    const bypassHtml = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Verificando acceso...</title>
-  <style>
-    body { 
-      font-family: Arial, sans-serif; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      height: 100vh; 
-      margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-    }
-    .loader {
-      text-align: center;
-    }
-    .spinner {
-      border: 4px solid rgba(255,255,255,0.3);
-      border-radius: 50%;
-      border-top: 4px solid white;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 20px;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
-</head>
-<body>
-  <div class="loader">
-    <div class="spinner"></div>
-    <h2>Verificando acceso seguro...</h2>
-    <p>Por favor espera un momento</p>
-  </div>
-  <script>
-    // Hacer petición con header de bypass
-    fetch(window.location.href, {
-      headers: {
-        'bypass-tunnel-reminder': 'true',
-        'User-Agent': 'CONATEL-Bot-Panel/1.0'
+  // ✅ SI VIENE DE LOCALTUNNEL Y PIDE LA RAÍZ (/), SERVIR LA BIENVENIDA
+  if (isLocalTunnel && (relative === '/' || relative === '')) {
+    const welcomePath = path.join(PUBLIC_DIR, 'tunnel-welcome.html');
+    fs.readFile(welcomePath, (err, data) => {
+      if (err) {
+        // Si no existe la bienvenida, servir login normal como respaldo
+        const loginPath = path.join(PUBLIC_DIR, 'login.html');
+        fs.readFile(loginPath, (err2, data2) => {
+          if (err2) return json(res, 404, { error: 'Panel no encontrado' });
+          res.writeHead(200, { 'Content-Type': MIME['.html'] });
+          res.end(data2);
+        });
+        return;
       }
-    }).then(() => {
-      // Establecer cookie para no repetir el bypass
-      document.cookie = "tunnel_bypass=true; path=/; max-age=604800"; // 7 días
-      
-      // Redirigir a tunnel-welcome.html
-      window.location.href = '/tunnel-welcome.html';
-    }).catch(() => {
-      // Si falla, intentar de todas formas
-      document.cookie = "tunnel_bypass=true; path=/; max-age=604800";
-      window.location.href = '/tunnel-welcome.html';
+      res.writeHead(200, { 'Content-Type': MIME['.html'] });
+      res.end(data);
     });
-  </script>
-</body>
-</html>`;
-    
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(bypassHtml);
     return;
   }
 
-  // Para otras rutas, servir normalmente
+  // Para todas las demás rutas (incluido /login.html), servir el archivo real
   if (relative === '/' || relative === '') relative = '/login.html';
 
   const filePath = path.resolve(PUBLIC_DIR, `.${relative}`);
