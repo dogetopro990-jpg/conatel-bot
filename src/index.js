@@ -7,6 +7,8 @@ const {
 const QRCodeTerminal = require('qrcode-terminal');
 const pino = require('pino');
 const localtunnel = require('localtunnel');
+const fs = require('fs');
+const path = require('path');
 
 const config = require('./config');
 const logger = require('./logger');
@@ -119,10 +121,19 @@ async function connect() {
       if (connState === 'close') {
         const code = lastDisconnect?.error?.output?.statusCode;
         if (code === DisconnectReason.loggedOut) {
-          console.log('⚠️  Sesión cerrada desde WhatsApp');
+          console.log('⚠️  Sesión cerrada desde WhatsApp. Borrando credenciales...');
           if (connection) connection.setLoggedOut('Sesión cerrada desde el teléfono.');
           try { socket.end(false); } catch {}
-          sock = null; botPhoneNumber = null; return;
+          sock = null; 
+          botPhoneNumber = null;
+          
+          // 🗑️ BORRAR CARPETA DE AUTH AUTOMÁTICAMENTE
+          const authDir = path.resolve(process.cwd(), config.authFolder || 'auth_info');
+          if (fs.existsSync(authDir)) {
+            fs.rmSync(authDir, { recursive: true, force: true });
+            console.log('✅ Carpeta de autenticación eliminada correctamente.');
+          }
+          return;
         }
         if (manualDisconnect) return;
         if (connection) connection.setError(lastDisconnect?.error?.message || 'Desconexión');
@@ -235,7 +246,7 @@ async function start() {
 
     // 1. Definir la URL objetivo (la guardada o la por defecto)
     const savedUrl = store.getSetting('publicUrl');
-    let targetSubdomain = 'conatel-bot-05-12-1995-2444666666'; // Tu URL preferida por defecto
+    let targetSubdomain = 'conatel-bot-05-12-1995'; // Tu URL preferida por defecto
     
     if (savedUrl && savedUrl.includes('.loca.lt')) {
       const match = savedUrl.match(/https:\/\/([a-z0-9-]+)\.loca\.lt/i);

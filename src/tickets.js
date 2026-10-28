@@ -114,26 +114,27 @@ function renumberTickets(store) {
 }
 
 // ============ ACTUALIZAR TICKET ============
-
 function appendUpdate({ store, ticket, fromPhone, fromName, text, changes = {} }) {
-  const employee = store.getEmployee(fromPhone);
-  const displayName = employee?.name || fromName || 'Usuario';
+  // ✅ CORRECCIÓN: Limpiar el teléfono antes de buscar para asegurar que coincida con la BD
+  const cleanPhone = fromPhone ? String(fromPhone).replace(/\D/g, '') : '';
+  const employee = cleanPhone ? store.getEmployee(cleanPhone) : null;
+  
+  // Si no encuentra el empleado, usa el nombre que venga, o el teléfono limpio, NUNCA "Usuario"
+  const displayName = employee?.name || fromName || (cleanPhone ? cleanPhone : 'Desconocido');
 
-  // Si es una aclaración, agregarla a la descripción
   if (changes.kind === 'aclaracion' || changes.kind === 'mensaje_pendiente') {
     const timestamp = new Date().toLocaleString('es');
     ticket.description += `\n\n[Actualización ${timestamp}] ${text}`;
   }
 
   ticket.messages.push({
-    from: fromPhone,
+    from: cleanPhone || fromPhone,
     name: displayName,
     text,
     kind: changes.kind || 'nota',
     at: nowISO()
   });
 
-  // Guardar cambios en SQLite
   store.updateTicket(ticket.id, {
     ...changes,
     description: ticket.description,

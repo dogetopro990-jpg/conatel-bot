@@ -15,9 +15,9 @@
     .connection-card {
       background: var(--bg-secondary);
       border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
+      border-radius: var(--radius-lg, 12px);
       padding: 24px;
-      box-shadow: var(--shadow-sm);
+      box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.1));
     }
     .connection-card h3 {
       font-size: 18px;
@@ -36,7 +36,7 @@
     .url-box {
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius, 8px);
       padding: 12px;
       font-family: monospace;
       font-size: 13px;
@@ -51,6 +51,7 @@
       color: var(--primary);
       text-decoration: none;
       flex: 1;
+      font-weight: 600;
     }
     .url-box a:hover { text-decoration: underline; }
     .copy-btn {
@@ -62,8 +63,9 @@
       cursor: pointer;
       color: var(--text-primary);
       transition: all 0.15s;
+      white-space: nowrap;
     }
-    .copy-btn:hover { background: var(--primary); color: white; }
+    .copy-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
     .status-badge {
       display: inline-block;
       padding: 4px 10px;
@@ -71,26 +73,17 @@
       font-size: 12px;
       font-weight: 600;
     }
-    .status-active {
-      background: var(--success-bg);
-      color: var(--success);
-    }
-    .status-inactive {
-      background: var(--error-bg);
-      color: var(--error);
-    }
+    .status-active { background: var(--success-bg, #dcfce7); color: var(--success, #16a34a); }
+    .status-inactive { background: var(--error-bg, #fee2e2); color: var(--error, #dc2626); }
     .setup-steps {
       background: var(--bg-tertiary);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
+      border-radius: var(--radius, 8px);
       padding: 16px;
       margin-top: 12px;
       font-size: 13px;
     }
-    .setup-steps ol {
-      margin-left: 20px;
-      line-height: 1.8;
-    }
+    .setup-steps ol { margin-left: 20px; line-height: 1.8; }
     .setup-steps code {
       background: var(--bg-primary);
       padding: 2px 6px;
@@ -102,16 +95,27 @@
       text-align: center;
       padding: 20px;
       background: white;
-      border-radius: var(--radius);
+      border-radius: var(--radius, 8px);
       margin: 16px 0;
+      border: 1px solid var(--border);
     }
-    .qr-code img { max-width: 200px; }
+    .qr-code img { max-width: 200px; height: auto; }
     .form-group { margin-bottom: 12px; }
     .form-group label {
       display: block;
       font-size: 13px;
       margin-bottom: 4px;
       color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 14px;
     }
   </style>
 </head>
@@ -147,104 +151,117 @@
     </div>
   </nav>
 
-  <main>
+  <main style="padding: 24px; max-width: 1200px; margin: 0 auto;">
     <h2 style="font-size: 28px; font-weight: 700; margin-bottom: 8px;">🌐 Acceso al Panel</h2>
     <p style="color: var(--text-secondary); margin-bottom: 24px;">
-      Diferentes formas de acceder al panel desde cualquier dispositivo.
+      Diferentes formas de acceder al panel de administración desde cualquier dispositivo.
     </p>
 
     <!-- Info del sistema -->
-    <div class="card mb-3">
-      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">💻 Servidor</h3>
-      <div id="systemInfo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;"></div>
+    <div class="card mb-3" style="margin-bottom: 24px;">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        💻 Información del Servidor
+      </h3>
+      <div id="systemInfo" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px;"></div>
     </div>
 
     <div class="connection-grid">
-      <!-- Red Local -->
+      <!-- 1. Red Local -->
       <div class="connection-card">
         <h3>🏠 Red Local (WiFi/Ethernet)</h3>
-        <p>Accede desde cualquier dispositivo en la <strong>misma red</strong>. No requiere configuración adicional.</p>
+        <p>Accede desde cualquier dispositivo en la <strong>misma red</strong>. No requiere configuración adicional ni internet.</p>
         <div id="localUrls"></div>
         <div class="setup-steps">
           <strong>📱 Para acceder desde tu celular:</strong>
           <ol>
-            <li>Conecta el celular al <strong>mismo WiFi</strong> que el servidor</li>
-            <li>Abre el navegador y escribe una de las URLs de arriba</li>
-            <li>Inicia sesión con tus credenciales</li>
+            <li>Conecta el celular al <strong>mismo WiFi</strong> que el servidor.</li>
+            <li>Abre el navegador y escribe una de las URLs de arriba.</li>
+            <li>Inicia sesión con tus credenciales.</li>
           </ol>
         </div>
       </div>
 
-      <!-- Cloudflare -->
+      <!-- 2. Túnel Activo (LocalTunnel / Cloudflare / Tailscale) -->
       <div class="connection-card">
-        <h3>☁️ Cloudflare Tunnel <span class="status-badge status-inactive" id="cfStatus">No configurado</span></h3>
-        <p>Acceso desde <strong>cualquier lugar del mundo</strong> con HTTPS automático. Gratis y sin abrir puertos.</p>
-        <div id="cfUrl"></div>
-        <div class="setup-steps">
-          <strong>🔧 Configuración:</strong>
-          <ol>
-            <li>Crea cuenta en <a href="https://one.dash.cloudflare.com" target="_blank">Cloudflare Zero Trust</a> (gratis)</li>
-            <li>Ve a <strong>Access → Tunnels → Create a tunnel</strong></li>
-            <li>Elige "Cloudflared" y copia el comando</li>
-            <li>Ejecuta el comando en tu Raspberry Pi</li>
-            <li>Configura un dominio público</li>
-          </ol>
-        </div>
-        <div id="adminControlsCf" style="margin-top: 12px; display: none;">
+        <h3>
+          🌍 Acceso Remoto 
+          <span class="status-badge status-inactive" id="tunnelStatus">No configurado</span>
+        </h3>
+        <p>Accede desde <strong>cualquier lugar del mundo</strong>. El bot utiliza LocalTunnel por defecto, pero puedes configurar Cloudflare o Tailscale.</p>
+        
+        <div id="activeTunnelUrl"></div>
+        
+        <div id="adminControlsTunnel" style="margin-top: 16px; display: none; border-top: 1px solid var(--border); padding-top: 16px;">
           <div class="form-group">
-            <label>URL del túnel</label>
-            <input type="text" id="cfTunnelUrl" placeholder="https://conatel.tusitio.com" />
+            <label>URL del túnel activo</label>
+            <input type="text" id="tunnelUrlInput" placeholder="https://ejemplo.loca.lt o https://tudominio.com" />
           </div>
-          <button class="btn btn-primary" onclick="saveCfTunnel()" style="width: 100%;">💾 Guardar</button>
+          <div class="form-group">
+            <label>Tipo de túnel</label>
+            <select id="tunnelTypeInput">
+              <option value="localtunnel">LocalTunnel (Automático del Bot)</option>
+              <option value="cloudflare">Cloudflare Tunnel</option>
+              <option value="tailscale">Tailscale</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="saveTunnel()" style="width: 100%;">💾 Guardar Configuración</button>
+        </div>
+
+        <div class="setup-steps">
+          <strong>💡 Nota:</strong> Si usas LocalTunnel, el bot genera y guarda esta URL automáticamente al iniciar. Para opciones más estables, revisa la documentación de Cloudflare Zero Trust o Tailscale.
         </div>
       </div>
 
-      <!-- Tailscale -->
+      <!-- 3. Configuración Avanzada -->
       <div class="connection-card">
-        <h3>🔒 Tailscale <span class="status-badge status-inactive" id="tsStatus">No configurado</span></h3>
-        <p>Red privada entre tus dispositivos. <strong>Muy seguro</strong>, solo acceden dispositivos autorizados.</p>
-        <div id="tsUrl"></div>
+        <h3>🔧 Configuración Avanzada</h3>
+        <p>Opciones para mejorar la estabilidad del acceso remoto si LocalTunnel presenta limitaciones.</p>
         <div class="setup-steps">
-          <strong>🔧 Configuración:</strong>
+          <strong>☁️ Cloudflare Tunnel (Recomendado para producción):</strong>
           <ol>
-            <li>Crea cuenta en <a href="https://tailscale.com" target="_blank">tailscale.com</a></li>
+            <li>Crea cuenta en <a href="https://one.dash.cloudflare.com" target="_blank" style="color: var(--primary);">Cloudflare Zero Trust</a>.</li>
+            <li>Ve a <strong>Access → Tunnels → Create a tunnel</strong>.</li>
+            <li>Instala `cloudflared` en la Raspberry Pi.</li>
+            <li>Copia la URL pública y pégala en el panel de la izquierda.</li>
+          </ol>
+        </div>
+        <div class="setup-steps" style="margin-top: 12px;">
+          <strong>🔒 Tailscale (Red privada segura):</strong>
+          <ol>
             <li>Instala en Raspberry Pi: <code>curl -fsSL https://tailscale.com/install.sh | sh</code></li>
-            <li>Ejecuta: <code>sudo tailscale up</code></li>
-            <li>Instala en tus otros dispositivos</li>
+            <li>Ejecuta: <code>sudo tailscale up</code> y autoriza el dispositivo.</li>
+            <li>Usa la IP `100.x.y.z` asignada por Tailscale.</li>
           </ol>
-        </div>
-        <div id="adminControlsTs" style="margin-top: 12px; display: none;">
-          <div class="form-group">
-            <label>IP o nombre Tailscale</label>
-            <input type="text" id="tsTunnelUrl" placeholder="http://100.x.y.z:3000" />
-          </div>
-          <button class="btn btn-primary" onclick="saveTsTunnel()" style="width: 100%;">💾 Guardar</button>
         </div>
       </div>
     </div>
 
     <!-- QR de acceso rápido -->
-    <div class="card mt-3">
-      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">📲 Acceso rápido con QR</h3>
+    <div class="card mt-3" style="margin-top: 24px;">
+      <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        📲 Acceso rápido con QR
+      </h3>
       <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 16px;">
-        Escanea este código con tu celular para abrir el panel rápidamente.
+        Escanea este código con la cámara de tu celular para abrir el panel rápidamente sin escribir la URL.
       </p>
-      <div style="display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;">
-        <div>
-          <div class="form-group" style="min-width: 250px;">
-            <label>URL a codificar</label>
-            <select id="qrUrlSelect" onchange="updateQR()" style="width: 100%;"></select>
+      <div style="display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 250px;">
+          <div class="form-group">
+            <label>Selecciona la URL a codificar:</label>
+            <select id="qrUrlSelect" onchange="updateQR()"></select>
           </div>
-          <div id="qrCodeContainer" class="qr-code"></div>
+          <div id="qrCodeContainer" class="qr-code">
+            <p style="color: var(--text-muted); padding: 40px;">Cargando código QR...</p>
+          </div>
         </div>
-        <div style="flex: 1; min-width: 200px;">
-          <div class="setup-steps">
+        <div style="flex: 1; min-width: 250px;">
+          <div class="setup-steps" style="height: 100%; box-sizing: border-box;">
             <strong>📱 Cómo usar:</strong>
-            <ol>
-              <li>Selecciona la URL que quieres codificar</li>
-              <li>Abre la cámara de tu celular</li>
-              <li>Apunta al código QR</li>
-              <li>Toca la notificación para abrir el panel</li>
+            <ol style="margin-top: 8px;">
+              <li>Selecciona la URL deseada en el menú.</li>
+              <li>Abre la aplicación de <strong>Cámara</strong> de tu celular.</li>
+              <li>Apunta al código QR que aparece a la izquierda.</li>
+              <li>Toca la notificación que aparece para abrir el panel.</li>
             </ol>
           </div>
         </div>
@@ -256,6 +273,7 @@
     let currentUser = null;
     let networkInfo = null;
 
+    // 1. Autenticación
     fetch('/api/auth/me')
       .then(res => {
         if (!res.ok) throw new Error('No autenticado');
@@ -267,82 +285,67 @@
         document.getElementById('userRole').textContent = user.role;
         
         if (user.role !== 'admin') {
-          ['settingsLink', 'usersLink', 'dbLink'].forEach(id => {
+          ['settingsLink', 'usersLink', 'dbLink', 'adminControlsTunnel'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = 'none';
           });
-        } else {
-          document.getElementById('adminControlsCf').style.display = 'block';
-          document.getElementById('adminControlsTs').style.display = 'block';
         }
         
         loadNetworkInfo();
       })
       .catch(() => { window.location.href = '/login.html'; });
 
+    // 2. Tema
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
+
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login.html';
     }
+
     function toggleMenu() {
       document.getElementById('navLinks').classList.toggle('open');
     }
 
+    // 3. Carga de datos de red
     async function loadNetworkInfo() {
       try {
         const res = await fetch('/api/network/info');
         networkInfo = await res.json();
         renderSystemInfo();
         renderLocalUrls();
-        renderTunnelStatus();
+        renderActiveTunnel();
         renderQRSelector();
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error cargando info de red:', error);
+        document.getElementById('systemInfo').innerHTML = '<p style="color: var(--error);">Error al cargar la información del servidor.</p>';
       }
     }
 
     function renderSystemInfo() {
       const info = networkInfo;
       document.getElementById('systemInfo').innerHTML = `
-        <div>
-          <div class="text-muted" style="font-size: 12px;">Hostname</div>
-          <div style="font-weight: 600;">${info.hostname}</div>
-        </div>
-        <div>
-          <div class="text-muted" style="font-size: 12px;">Plataforma</div>
-          <div style="font-weight: 600;">${info.platform} (${info.arch})</div>
-        </div>
-        <div>
-          <div class="text-muted" style="font-size: 12px;">CPU</div>
-          <div style="font-weight: 600;">${info.cpus} núcleos</div>
-        </div>
-        <div>
-          <div class="text-muted" style="font-size: 12px;">Memoria</div>
-          <div style="font-weight: 600;">${info.memory}</div>
-        </div>
-        <div>
-          <div class="text-muted" style="font-size: 12px;">Puerto</div>
-          <div style="font-weight: 600;">${info.port}</div>
-        </div>
-        <div>
-          <div class="text-muted" style="font-size: 12px;">Uptime</div>
-          <div style="font-weight: 600;">${info.uptime}</div>
-        </div>
+        <div><div style="font-size: 12px; color: var(--text-muted);">Hostname</div><div style="font-weight: 600;">${info.hostname}</div></div>
+        <div><div style="font-size: 12px; color: var(--text-muted);">Plataforma</div><div style="font-weight: 600;">${info.platform} (${info.arch})</div></div>
+        <div><div style="font-size: 12px; color: var(--text-muted);">CPU</div><div style="font-weight: 600;">${info.cpus} núcleos</div></div>
+        <div><div style="font-size: 12px; color: var(--text-muted);">Memoria</div><div style="font-weight: 600;">${info.memory}</div></div>
+        <div><div style="font-size: 12px; color: var(--text-muted);">Puerto</div><div style="font-weight: 600;">${info.port}</div></div>
+        <div><div style="font-size: 12px; color: var(--text-muted);">Uptime</div><div style="font-weight: 600;">${info.uptime}</div></div>
       `;
     }
 
     function renderLocalUrls() {
       const container = document.getElementById('localUrls');
-      if (networkInfo.localUrls.length === 0) {
-        container.innerHTML = '<p class="text-muted">No se detectaron interfaces de red</p>';
+      if (!networkInfo.localUrls || networkInfo.localUrls.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-muted); font-size: 13px;">No se detectaron interfaces de red locales.</p>';
         return;
       }
 
@@ -351,40 +354,43 @@
           <a href="${ip.url}" target="_blank">
             <strong>${ip.label}:</strong> ${ip.url}
           </a>
-          <button class="copy-btn" onclick="copyToClipboard('${ip.url}')">📋</button>
+          <button class="copy-btn" onclick="copyToClipboard('${ip.url}', this)">📋 Copiar</button>
         </div>
       `).join('');
     }
 
-    function renderTunnelStatus() {
-      const tunnel = networkInfo.tunnel;
-      
-      const cfStatus = document.getElementById('cfStatus');
-      const cfUrl = document.getElementById('cfUrl');
-      if (tunnel && tunnel.enabled && tunnel.type === 'cloudflare' && tunnel.url) {
-        cfStatus.textContent = 'Activo';
-        cfStatus.className = 'status-badge status-active';
-        cfUrl.innerHTML = `
-          <div class="url-box">
-            <a href="${tunnel.url}" target="_blank">${tunnel.url}</a>
-            <button class="copy-btn" onclick="copyToClipboard('${tunnel.url}')">📋</button>
-          </div>
-        `;
-        document.getElementById('cfTunnelUrl').value = tunnel.url;
-      }
+    function renderActiveTunnel() {
+      const tunnel = networkInfo.tunnel || {};
+      const statusBadge = document.getElementById('tunnelStatus');
+      const urlContainer = document.getElementById('activeTunnelUrl');
+      const inputUrl = document.getElementById('tunnelUrlInput');
+      const inputType = document.getElementById('tunnelTypeInput');
 
-      const tsStatus = document.getElementById('tsStatus');
-      const tsUrl = document.getElementById('tsUrl');
-      if (tunnel && tunnel.enabled && tunnel.type === 'tailscale' && tunnel.url) {
-        tsStatus.textContent = 'Activo';
-        tsStatus.className = 'status-badge status-active';
-        tsUrl.innerHTML = `
-          <div class="url-box">
-            <a href="${tunnel.url}" target="_blank">${tunnel.url}</a>
-            <button class="copy-btn" onclick="copyToClipboard('${tunnel.url}')">📋</button>
+      if (tunnel.enabled && tunnel.url) {
+        statusBadge.textContent = 'Activo';
+        statusBadge.className = 'status-badge status-active';
+        
+        const tunnelName = tunnel.type === 'cloudflare' ? '☁️ Cloudflare' : 
+                           tunnel.type === 'tailscale' ? '🔒 Tailscale' : '🌍 LocalTunnel';
+
+        urlContainer.innerHTML = `
+          <div class="url-box" style="margin-top: 12px;">
+            <a href="${tunnel.url}" target="_blank">
+              <strong>${tunnelName}:</strong> ${tunnel.url}
+            </a>
+            <button class="copy-btn" onclick="copyToClipboard('${tunnel.url}', this)">📋 Copiar</button>
           </div>
         `;
-        document.getElementById('tsTunnelUrl').value = tunnel.url;
+        
+        // Prellenar formulario de admin
+        inputUrl.value = tunnel.url;
+        inputType.value = tunnel.type || 'localtunnel';
+      } else {
+        statusBadge.textContent = 'Inactivo';
+        statusBadge.className = 'status-badge status-inactive';
+        urlContainer.innerHTML = '<p style="color: var(--text-muted); font-size: 13px; margin-top: 12px;">No hay un túnel remoto configurado. El bot intentará generar uno con LocalTunnel al iniciar.</p>';
+        inputUrl.value = '';
+        inputType.value = 'localtunnel';
       }
     }
 
@@ -392,17 +398,21 @@
       const select = document.getElementById('qrUrlSelect');
       const urls = [];
       
-      networkInfo.localUrls.forEach(ip => {
-        urls.push({ label: `${ip.label} - ${ip.url}`, url: ip.url });
-      });
+      if (networkInfo.localUrls) {
+        networkInfo.localUrls.forEach(ip => {
+          urls.push({ label: `🏠 ${ip.label} (${ip.url})`, url: ip.url });
+        });
+      }
       
-      const tunnel = networkInfo.tunnel;
-      if (tunnel && tunnel.enabled && tunnel.url) {
-        urls.push({ label: `${tunnel.type === 'cloudflare' ? '☁️ Cloudflare' : '🔒 Tailscale'} - ${tunnel.url}`, url: tunnel.url });
+      const tunnel = networkInfo.tunnel || {};
+      if (tunnel.enabled && tunnel.url) {
+        const tunnelName = tunnel.type === 'cloudflare' ? 'Cloudflare' : tunnel.type === 'tailscale' ? 'Tailscale' : 'LocalTunnel';
+        urls.push({ label: `🌍 ${tunnelName} (${tunnel.url})`, url: tunnel.url });
       }
 
       if (urls.length === 0) {
         select.innerHTML = '<option>No hay URLs disponibles</option>';
+        document.getElementById('qrCodeContainer').innerHTML = '<p style="color: var(--text-muted); padding: 40px;">No hay conexiones disponibles</p>';
         return;
       }
 
@@ -419,15 +429,24 @@
       
       const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
       document.getElementById('qrCodeContainer').innerHTML = `
-        <img src="${qrApiUrl}" alt="QR Code" />
-        <div style="margin-top: 8px; font-size: 12px; color: var(--text-muted); word-break: break-all;">${url}</div>
+        <img src="${qrApiUrl}" alt="Código QR de acceso" />
+        <div style="margin-top: 12px; font-size: 12px; color: var(--text-muted); word-break: break-all; font-family: monospace;">${url}</div>
       `;
     }
 
-    function copyToClipboard(text) {
+    function copyToClipboard(text, btnElement) {
       navigator.clipboard.writeText(text).then(() => {
-        alert('✓ Copiado: ' + text);
+        const originalText = btnElement.textContent;
+        btnElement.textContent = '✓ Copiado';
+        btnElement.style.background = 'var(--success)';
+        btnElement.style.color = 'white';
+        setTimeout(() => {
+          btnElement.textContent = originalText;
+          btnElement.style.background = '';
+          btnElement.style.color = '';
+        }, 2000);
       }).catch(() => {
+        // Fallback para navegadores antiguos
         const input = document.createElement('input');
         input.value = text;
         document.body.appendChild(input);
@@ -438,34 +457,32 @@
       });
     }
 
-    async function saveCfTunnel() {
-      const url = document.getElementById('cfTunnelUrl').value.trim();
-      if (!url) { alert('Ingresa una URL'); return; }
+    async function saveTunnel() {
+      const url = document.getElementById('tunnelUrlInput').value.trim();
+      const type = document.getElementById('tunnelTypeInput').value;
+      
+      if (!url) { 
+        alert('Por favor, ingresa una URL válida'); 
+        return; 
+      }
       
       try {
-        await fetch('/api/network/tunnel', {
+        const res = await fetch('/api/network/tunnel', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled: true, type: 'cloudflare', url })
+          body: JSON.stringify({ enabled: true, type: type, url: url })
         });
-        alert('✓ Configuración guardada');
-        loadNetworkInfo();
-      } catch { alert('Error al guardar'); }
-    }
-
-    async function saveTsTunnel() {
-      const url = document.getElementById('tsTunnelUrl').value.trim();
-      if (!url) { alert('Ingresa una URL'); return; }
-      
-      try {
-        await fetch('/api/network/tunnel', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ enabled: true, type: 'tailscale', url })
-        });
-        alert('✓ Configuración guardada');
-        loadNetworkInfo();
-      } catch { alert('Error al guardar'); }
+        
+        if (res.ok) {
+          alert('✓ Configuración guardada correctamente');
+          loadNetworkInfo(); // Recargar para mostrar los cambios
+        } else {
+          alert('Error al guardar la configuración');
+        }
+      } catch (error) {
+        console.error(error);
+        alert('Error de red al guardar');
+      }
     }
   </script>
 </body>

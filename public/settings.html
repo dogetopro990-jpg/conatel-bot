@@ -245,7 +245,7 @@
 
     <!-- Áreas -->
     <div class="card mt-3">
-      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">🏢 Áreas de la Empresa</h3>
+      <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 20px;"> Áreas de la Empresa</h3>
       <div class="area-list" id="areasList"></div>
       <div class="flex gap-1 mt-2">
         <input type="text" id="newArea" placeholder="Nueva área..." style="flex: 1;" />
@@ -431,7 +431,7 @@
         });
         showResult(res.ok ? '✓ Seguridad guardada' : '✗ Error', !res.ok);
         loadSafety();
-      } catch { showResult('✗ Error de red', true); }
+      } catch { showResult(' Error de red', true); }
     }
 
     async function resetSafety() {
@@ -446,44 +446,79 @@
     }
 
     async function loadAreas() {
-      const res = await fetch('/api/areas');
-      const areas = await res.json();
-      document.getElementById('areasList').innerHTML = areas.map(a => `
-        <div class="area-item">
-          <span>${a}</span>
-          <button class="btn btn-danger" onclick="deleteArea('${a.replace(/'/g, "\\'")}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
-        </div>
-      `).join('');
+      try {
+        const res = await fetch('/api/areas');
+        if (!res.ok) throw new Error('Error al cargar áreas');
+        const areas = await res.json();
+        const container = document.getElementById('areasList');
+        
+        if (!areas || areas.length === 0) {
+          container.innerHTML = '<p style="color: var(--text-muted); text-align: center; padding: 20px;">No hay áreas registradas</p>';
+          return;
+        }
+        
+        container.innerHTML = areas.map(a => {
+          const safeArea = a.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+          return `
+            <div class="area-item">
+              <span>${a}</span>
+              <button class="btn btn-danger" onclick="deleteArea('${safeArea}')" style="padding: 6px 12px; font-size: 13px;">Eliminar</button>
+            </div>
+          `;
+        }).join('');
+      } catch (error) {
+        console.error('Error loading areas:', error);
+        document.getElementById('areasList').innerHTML = 
+          '<p style="color: var(--error); text-align: center; padding: 20px;">Error al cargar áreas. Verifica consola (F12).</p>';
+      }
     }
 
     async function addArea() {
-      const area = document.getElementById('newArea').value.trim();
-      if (!area) return;
+      const input = document.getElementById('newArea');
+      const area = input.value.trim();
+      if (!area) {
+        showResult('⚠️ Ingresa un nombre de área', true);
+        return;
+      }
       try {
         const res = await fetch('/api/areas', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          method: 'POST', 
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ area })
         });
         if (res.ok) {
-          document.getElementById('newArea').value = '';
-          loadAreas();
-          showResult('✓ Área agregada');
+          input.value = '';
+          await loadAreas();
+          showResult('✓ Área agregada correctamente');
+        } else {
+          const error = await res.json().catch(() => ({}));
+          showResult(`✗ Error: ${error.message || 'Código ' + res.status}`, true);
         }
-      } catch { showResult('✗ Error', true); }
+      } catch (error) {
+        console.error('Error adding area:', error);
+        showResult('✗ Error de conexión', true);
+      }
     }
 
     async function deleteArea(area) {
-      if (!confirm(`¿Eliminar "${area}"?`)) return;
+      if (!confirm(`¿Eliminar "${area}"?\n\nEsta acción no se puede deshacer.`)) return;
       try {
         const res = await fetch('/api/areas', {
-          method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+          method: 'DELETE', 
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ area })
         });
         if (res.ok) {
-          loadAreas();
-          showResult('✓ Área eliminada');
+          await loadAreas();
+          showResult('✓ Área eliminada correctamente');
+        } else {
+          const error = await res.json().catch(() => ({}));
+          showResult(` Error: ${error.message || 'Código ' + res.status}`, true);
         }
-      } catch { showResult('✗ Error', true); }
+      } catch (error) {
+        console.error('Error deleting area:', error);
+        showResult('✗ Error de conexión', true);
+      }
     }
 
     async function loadMessages() {
@@ -510,7 +545,7 @@
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(messages)
         });
-        showResult(res.ok ? '✓ Mensajes guardados' : '✗ Error', !res.ok);
+        showResult(res.ok ? '✓ Mensajes guardados' : ' Error', !res.ok);
       } catch { showResult('✗ Error de red', true); }
     }
 

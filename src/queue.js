@@ -1,45 +1,35 @@
 class SafeQueue {
   constructor({ sendText, sendPresence, logger, safety, minDelay = 300, maxDelay = 800 }) {
-    this.sendText = sendText;        // Función RAW (toca Baileys directamente)
+    this.sendText = sendText;
     this.sendPresence = sendPresence;
     this.logger = logger;
     this.safety = safety;
     this.minDelay = minDelay;
     this.maxDelay = maxDelay;
 
-    // ===== COLA GLOBAL ESTRICTA (un mensaje a la vez en TODO el sistema) =====
+    // ===== COLA GLOBAL ESTRICTA =====
     this.globalQueue = [];
     this.isProcessing = false;
     this.lastSendTime = 0;
-    this.extraDelay = 2000; // 2 segundos extra entre CUALQUIER envío
+    this.extraDelay = 2000; // 2 segundos entre envíos
 
-    // ===== COLAS POR CHAT (typing + delay humano para respuestas del bot) =====
+    // ===== COLAS POR CHAT =====
     this.chatQueues = new Map();
     this.processingChats = new Set();
 
     // ===== ESTADÍSTICAS =====
-    this.stats = {
-      totalSent: 0,
-      totalBlocked: 0,
-      lastSentAt: null
-    };
+    this.stats = { totalSent: 0, totalBlocked: 0, lastSentAt: null };
 
     console.log('📬 SafeQueue inicializada (delay global: 2s entre envíos)');
   }
 
   // ============================================================
-  // COLA GLOBAL: envío físico de mensajes (uno a la vez + 2s)
+  // COLA GLOBAL: envío físico con reintentos
   // ============================================================
 
-  async enqueueSend(jid, text, options = {}) {
+  async enqueueSend(jid, text, options = {}, retries = 2) {
     return new Promise((resolve) => {
-      this.globalQueue.push({
-        jid,
-        text,
-        options,
-        resolve,
-        enqueuedAt: Date.now()
-      });
+      this.globalQueue.push({ jid, text, options, resolve, retries, enqueuedAt: Date.now() });
       console.log(`   📬 En cola global (posición ${this.globalQueue.length}): ${jid.split('@')[0]}`);
       this.processGlobalQueue();
     });
@@ -53,12 +43,11 @@ class SafeQueue {
     const phone = job.jid.split('@')[0];
 
     try {
-      // 1. Verificaciones de seguridad SOLO para mensajes proactivos
-      //    (broadcasts y notificaciones masivas, NO respuestas conversacionales)
+      // 1. Verificaciones de seguridad
       if (job.options.proactive && this.safety) {
         const check = this.safety.canSend(phone, job.text);
         if (!check.allowed) {
-          console.log(`   🛡️  ⛔ Bloqueado a ${phone}: ${check.reason}`);
+          console.log(`   🛡️ ⛔ Bloqueado a ${phone}: ${check.reason}`);
           this.stats.totalBlocked++;
           job.resolve({ sent: false, reason: check.reason });
           this.isProcessing = false;
@@ -67,16 +56,15 @@ class SafeQueue {
         }
       }
 
-      // 2. Delay global estricto de 2 segundos entre envíos
+      // 2. Delay global estricto
       const now = Date.now();
       const timeSinceLastSend = now - this.lastSendTime;
       if (this.lastSendTime > 0 && timeSinceLastSend < this.extraDelay) {
         const waitTime = this.extraDelay - timeSinceLastSend;
-        console.log(`   ⏳ Delay de seguridad: ${waitTime}ms`);
         await new Promise(r => setTimeout(r, waitTime));
       }
 
-      // 3. Personalización (broadcasts)
+      // 3. Personalización
       let finalText = job.text;
       if (job.options.personalizable && job.options.employee && job.text.startsWith('📢') && this.safety) {
         finalText = this.safety.personalizeMessage(job.text, job.options.employee);
@@ -98,16 +86,29 @@ class SafeQueue {
         console.log(`   ✅ Enviado correctamente (total: ${this.stats.totalSent})`);
         job.resolve({ sent: true });
       } else {
-        if (this.safety) this.safety.recordError(phone);
-        this.stats.totalBlocked++;
-        console.log(`   ❌ Error de envío`);
-        job.resolve({ sent: false, reason: 'Error de envío' });
+        // REINTENTO SI FALLA EL ENVÍO
+        if (job.retries > 0) {
+          console.log(`   ⚠️ Fallo al enviar. Reintentando (${job.retries} restantes)...`);
+          job.retries--;
+          this.globalQueue.unshift(job); // Volver a poner al principio
+        } else {
+          if (this.safety) this.safety.recordError(phone);
+          this.stats.totalBlocked++;
+          console.log(`   ❌ Error de envío definitivo`);
+          job.resolve({ sent: false, reason: 'Error de envío' });
+        }
       }
     } catch (error) {
-      if (this.safety) this.safety.recordError(phone);
-      this.stats.totalBlocked++;
-      this.logger?.error({ err: error.message }, 'Error en cola global');
-      job.resolve({ sent: false, reason: error.message });
+      if (job.retries > 0) {
+        console.log(`   ⚠️ Error en cola global. Reintentando...`);
+        job.retries--;
+        this.globalQueue.unshift(job);
+      } else {
+        if (this.safety) this.safety.recordError(phone);
+        this.stats.totalBlocked++;
+        this.logger?.error({ err: error.message }, 'Error definitivo en cola global');
+        job.resolve({ sent: false, reason: error.message });
+      }
     } finally {
       this.isProcessing = false;
       if (this.globalQueue.length > 0) {
@@ -117,7 +118,7 @@ class SafeQueue {
   }
 
   // ============================================================
-  // COLA POR CHAT: respuestas del bot (typing + delay humano)
+  // COLA POR CHAT: con manejo de errores y fallback
   // ============================================================
 
   enqueue(chatId, job) {
@@ -139,38 +140,42 @@ class SafeQueue {
       try {
         const chatClean = chatId.split('@')[0];
         console.log(`\n📋 [${new Date().toISOString()}]`);
-        console.log(`   ENCOLADO → ${chatClean}`);
-        console.log(`   Posición en cola: ${jobs.length + 1}`);
+        console.log(`   PROCESANDO CHAT → ${chatClean}`);
 
-        // Delay humano antes de responder
+        // Delay humano
         const delay = this.randomDelay();
-        console.log(`\n⏳ [${new Date().toISOString()}]`);
-        console.log(`   Procesando → ${chatClean}`);
-        console.log(`   Delay: ${(delay / 1000).toFixed(1)}s`);
+        await new Promise(r => setTimeout(r, delay));
 
         // Activar typing
         if (this.sendPresence) {
-          await this.sendPresence(chatId, 'composing');
-          console.log(`   📝 TYPING activado + 🧠 IA procesando...`);
+          await this.sendPresence(chatId, 'composing').catch(() => {});
         }
 
-        await new Promise(r => setTimeout(r, delay));
-
-        // Ejecutar el job (procesa la IA y devuelve la respuesta)
+        // Ejecutar el job (IA + lógica)
         const response = await job();
 
         // Desactivar typing
         if (this.sendPresence) {
-          await this.sendPresence(chatId, 'paused');
-          console.log(`   ⏸️  TYPING desactivado`);
+          await this.sendPresence(chatId, 'paused').catch(() => {});
         }
 
-        // Enviar la respuesta por la cola global (con delay de 2s)
-        if (response) {
+        // Validar y enviar
+        if (typeof response === 'string' && response.trim().length > 0) {
           await this.safeSend(chatId, response);
+        } else {
+          console.log(`   ⚠️ El job no devolvió una respuesta válida para ${chatClean}`);
         }
+
       } catch (error) {
-        this.logger?.error({ err: error.message }, 'Error en cola de chat');
+        // ✅ CORRECCIÓN CRÍTICA: Si la IA o la DB fallan, avisamos al usuario en lugar de dejarlo colgado
+        this.logger?.error({ err: error.message, chatId }, 'Error procesando respuesta del bot');
+        
+        const fallbackMsg = 'Disculpa, tuve un pequeño problema técnico procesando tu mensaje. ¿Podrías repetirlo?';
+        try {
+          await this.safeSend(chatId, fallbackMsg);
+        } catch (e) {
+          this.logger?.error({ err: e.message }, 'Fallo crítico enviando mensaje de error al usuario');
+        }
       }
     }
 
@@ -188,17 +193,14 @@ class SafeQueue {
   // API PÚBLICA
   // ============================================================
 
-  // Envío conversacional (respuestas del bot) — sin bloqueos de seguridad
   async safeSend(jid, text, options = {}) {
     return this.enqueueSend(jid, text, options);
   }
 
-  // Envío proactivo (notificaciones) — con verificaciones de seguridad
   async sendProactive(jid, text, options = {}) {
     return this.enqueueSend(jid, text, { ...options, proactive: true });
   }
 
-  // Broadcast seguro a múltiples destinatarios (siempre proactivo)
   async safeBroadcast(targets, text, employees = []) {
     const results = [];
     const employeeMap = new Map(employees.map(e => [e.phone, e]));
@@ -212,26 +214,17 @@ class SafeQueue {
       });
       results.push({ phone, ...result });
     }
-
     return results;
   }
 
-  // ============================================================
-  // ESTADÍSTICAS Y MANTENIMIENTO
-  // ============================================================
-
   getStats() {
-    return {
-      ...this.stats,
-      queueLength: this.globalQueue.length,
-      isProcessing: this.isProcessing
-    };
+    return { ...this.stats, queueLength: this.globalQueue.length, isProcessing: this.isProcessing };
   }
 
   clearQueue() {
     const cleared = this.globalQueue.length;
     this.globalQueue = [];
-    console.log(`   🗑️  Cola global limpiada: ${cleared} mensajes descartados`);
+    console.log(`   🗑️ Cola global limpiada: ${cleared} mensajes descartados`);
     return cleared;
   }
 }

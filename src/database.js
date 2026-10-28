@@ -237,17 +237,34 @@ class SQLStore {
     return this.getTicket(id);
   }
 
-  // ✅ DELETE TICKET CORREGIDO CON TRANSACCIÓN
+  // ✅ DELETE TICKET
   deleteTicket(id) {
     const deleteTransaction = this.db.transaction(() => {
-      // 1. Borrar mensajes del ticket
+      // 1. Desactivar temporalmente las restricciones de clave foránea 
+      // para evitar conflictos con schemas antiguos o tablas huérfanas
+      this.db.pragma('foreign_keys = OFF');
+      
+      // 2. Borrar registros dependientes conocidos (por si el CASCADE no está activo)
       this.db.prepare('DELETE FROM ticket_messages WHERE ticket_id = ?').run(id);
-      // 2. Borrar referencia en active_tickets
       this.db.prepare('DELETE FROM active_tickets WHERE ticket_id = ?').run(id);
-      // 3. Borrar el ticket principal
+      
+      // 3. Borrar cualquier otra referencia residual que pueda existir en schemas antiguos
+      try { this.db.prepare('DELETE FROM ticket_updates WHERE ticket_id = ?').run(id); } catch {}
+      
+      // 4. Borrar el ticket principal
       this.db.prepare('DELETE FROM tickets WHERE id = ?').run(id);
+      
+      // 5. Reactivar las restricciones de clave foránea
+      this.db.pragma('foreign_keys = ON');
     });
-    deleteTransaction();
+
+    try {
+      deleteTransaction();
+    } catch (error) {
+      // Asegurar que las foreign keys se reactiven incluso si algo falla
+      this.db.pragma('foreign_keys = ON');
+      throw error;
+    }
   }
 
   renumberTickets() {

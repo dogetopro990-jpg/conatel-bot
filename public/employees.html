@@ -42,14 +42,14 @@
     <div class="flex items-center justify-between mb-3 flex-col" style="align-items: flex-start;">
       <h2 style="font-size: 28px; font-weight: 700;">Empleados <span id="empCount" class="badge badge-primary">0</span></h2>
       <div class="flex gap-1 mt-1" id="adminButtons" style="flex-wrap: wrap;">
-        <button class="btn btn-secondary" onclick="openBulkModal()">📥 Importar</button>
+        <button class="btn btn-secondary" onclick="openBulkModal()">📥 Importar Masivo</button>
         <button class="btn btn-primary" onclick="openForm()">+ Nuevo</button>
       </div>
     </div>
 
     <!-- Búsqueda -->
     <div class="card mb-3">
-      <input id="searchInput" placeholder="🔍 Buscar por nombre, área, teléfono..." oninput="renderEmployees()" />
+      <input id="searchInput" placeholder="🔍 Buscar por nombre, área, teléfono..." oninput="renderEmployees()" style="width: 100%;" />
     </div>
 
     <!-- Tabla de empleados -->
@@ -89,7 +89,7 @@
             <input type="text" id="fName" required />
           </div>
           <div class="mb-2">
-            <label>Teléfono (con código país)</label>
+            <label>Teléfono (con código país, ej: 59170000000)</label>
             <input type="text" id="fPhone" required placeholder="59170000000" />
           </div>
           <div class="mb-2">
@@ -116,27 +116,27 @@
   <div id="bulkModal" class="modal">
     <div class="modal-content large">
       <div class="modal-header">
-        <h3>📥 Importar Empleados</h3>
+        <h3>📥 Importar Empleados (Masivo)</h3>
         <button class="modal-close" onclick="closeBulkModal()">✕</button>
       </div>
       <div class="modal-body">
-        <div class="alert alert-info">
-          <strong>💡 Formato:</strong> Pega desde Excel con columnas: <code>Nombre | Teléfono | Área | Cargo</code>. 
-          Usa <code>Ctrl+C</code> en Excel y <code>Ctrl+V</code> aquí.
+        <div class="alert alert-info" style="background: var(--bg-tertiary); border-left: 4px solid var(--primary); padding: 12px; margin-bottom: 16px; border-radius: 4px;">
+          <strong>💡 Instrucciones:</strong> Copia las celdas directamente desde Excel. El sistema espera 4 columnas en este orden: <br>
+          <code>Nombre</code> | <code>Teléfono</code> | <code>Área</code> | <code>Cargo</code>
         </div>
 
-        <textarea id="bulkInput" rows="8" placeholder="Juan Pérez	59170000000	DISET	Técnico
-María López	59171111111	Compras	Analista" style="font-family: monospace; font-size: 13px;"></textarea>
+        <textarea id="bulkInput" rows="10" placeholder="Juan Pérez	59170000000	DISET	Técnico
+María López	59171111111	Compras	Analista" style="width: 100%; font-family: monospace; font-size: 13px; padding: 8px; border: 1px solid var(--border); border-radius: 4px; background: var(--bg-primary); color: var(--text-primary);"></textarea>
 
         <div class="flex items-center gap-1 mt-2 mb-2">
           <input type="checkbox" id="bulkCreateAreas" checked style="width: 18px; height: 18px;" />
-          <label for="bulkCreateAreas" style="margin: 0; cursor: pointer;">Crear automáticamente las áreas que no existan</label>
+          <label for="bulkCreateAreas" style="margin: 0; cursor: pointer; font-size: 14px;">Crear automáticamente las áreas que no existan en el sistema</label>
         </div>
 
-        <div id="bulkResults"></div>
+        <div id="bulkResults" style="margin-top: 16px;"></div>
 
-        <div class="flex gap-1 mt-2">
-          <button class="btn btn-primary" onclick="importEmployees()" style="flex: 1;">📥 Importar</button>
+        <div class="flex gap-1 mt-3">
+          <button class="btn btn-primary" onclick="importEmployees()" style="flex: 1;">📥 Procesar Importación</button>
           <button class="btn btn-secondary" onclick="closeBulkModal()">Cancelar</button>
         </div>
       </div>
@@ -173,16 +173,19 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
 
     const savedTheme = localStorage.getItem('theme') || 'light';
     document.documentElement.setAttribute('data-theme', savedTheme);
+    
     function toggleTheme() {
       const current = document.documentElement.getAttribute('data-theme');
       const next = current === 'dark' ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
     }
+    
     async function logout() {
       await fetch('/api/auth/logout', { method: 'POST' });
       window.location.href = '/login.html';
     }
+    
     function toggleMenu() {
       document.getElementById('navLinks').classList.toggle('open');
     }
@@ -203,13 +206,16 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
         allAreas = await areasRes.json();
 
         document.getElementById('fArea').innerHTML = 
+          '<option value="">Selecciona un área</option>' +
           allAreas.map(a => `<option value="${a}">${a}</option>`).join('');
 
         cachedData = { employees: allEmployees, areas: allAreas };
         cacheTime = now;
         renderEmployees();
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error cargando datos:', error);
+        document.getElementById('employeesTableBody').innerHTML = 
+          `<tr><td colspan="6" class="empty-state"><p style="color: var(--error);">Error al cargar. Recarga la página.</p></td></tr>`;
       }
     }
 
@@ -227,7 +233,7 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
       const tbody = document.getElementById('employeesTableBody');
 
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">👥</div><p>No hay empleados</p></td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state"><div class="empty-state-icon">👥</div><p>No se encontraron empleados</p></td></tr>`;
         return;
       }
 
@@ -238,7 +244,7 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
         
         const actions = currentUser && currentUser.role === 'admin'
           ? `<td>
-              <button class="btn btn-secondary" onclick='editEmployee(${JSON.stringify(e).replace(/'/g, "&#39;")})' style="padding: 6px 12px; font-size: 13px;">Editar</button>
+              <button class="btn btn-secondary" onclick="editEmployee('${e.phone}')" style="padding: 6px 12px; font-size: 13px;">Editar</button>
               <button class="btn btn-danger" onclick="deleteEmployee('${e.phone}')" style="padding: 6px 12px; font-size: 13px; margin-left: 4px;">Eliminar</button>
             </td>`
           : '<td class="text-muted">-</td>';
@@ -262,17 +268,22 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
       document.getElementById('editPhone').value = '';
       document.getElementById('employeeForm').reset();
       document.getElementById('fPhone').disabled = false;
+      document.getElementById('fPhone').required = true;
       document.getElementById('fNotifications').checked = true;
       document.getElementById('modal').classList.add('active');
     }
 
-    function editEmployee(e) {
+    function editEmployee(phone) {
       if (!currentUser || currentUser.role !== 'admin') return;
+      const e = allEmployees.find(emp => emp.phone === phone);
+      if (!e) return;
+
       document.getElementById('modalTitle').textContent = 'Editar Empleado';
       document.getElementById('editPhone').value = e.phone;
       document.getElementById('fName').value = e.name;
       document.getElementById('fPhone').value = e.phone;
       document.getElementById('fPhone').disabled = true;
+      document.getElementById('fPhone').required = false;
       document.getElementById('fArea').value = e.area;
       document.getElementById('fRole').value = e.role;
       document.getElementById('fNotifications').checked = e.notificationsEnabled !== false;
@@ -281,43 +292,59 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
 
     async function deleteEmployee(phone) {
       if (!currentUser || currentUser.role !== 'admin') return;
-      if (!confirm('¿Eliminar empleado?')) return;
+      const emp = allEmployees.find(e => e.phone === phone);
+      if (!confirm(`¿Estás seguro de eliminar a "${emp ? emp.name : phone}"?`)) return;
+      
       try {
-        await fetch(`/api/employees/${phone}`, { method: 'DELETE' });
+        const res = await fetch(`/api/employees/${encodeURIComponent(phone)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Error en la respuesta del servidor');
         cacheTime = 0;
         await loadData();
-      } catch { alert('Error al eliminar'); }
+      } catch (error) {
+        console.error(error);
+        alert('Error al eliminar el empleado.');
+      }
     }
 
     document.getElementById('employeeForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const editPhone = document.getElementById('editPhone').value;
       const data = {
-        name: document.getElementById('fName').value,
-        phone: document.getElementById('fPhone').value,
+        name: document.getElementById('fName').value.trim(),
+        phone: document.getElementById('fPhone').value.trim(),
         area: document.getElementById('fArea').value,
-        role: document.getElementById('fRole').value,
+        role: document.getElementById('fRole').value.trim(),
         notificationsEnabled: document.getElementById('fNotifications').checked
       };
 
       try {
+        let res;
         if (editPhone) {
-          await fetch(`/api/employees/${editPhone}`, {
+          res = await fetch(`/api/employees/${encodeURIComponent(editPhone)}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
         } else {
-          await fetch('/api/employees', {
+          res = await fetch('/api/employees', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
           });
         }
+        
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || 'Error al guardar');
+        }
+        
         closeModal();
         cacheTime = 0;
         await loadData();
-      } catch { alert('Error al guardar'); }
+      } catch (error) {
+        console.error(error);
+        alert('Error: ' + error.message);
+      }
     });
 
     function closeModal() {
@@ -337,19 +364,23 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
 
     async function importEmployees() {
       const text = document.getElementById('bulkInput').value.trim();
-      if (!text) { alert('Pega los datos primero'); return; }
+      if (!text) { alert('Pega los datos en el área de texto primero.'); return; }
 
       const lines = text.split(/\r?\n/).filter(l => l.trim());
       const employees = [];
       let skippedHeader = false;
 
       lines.forEach((line, idx) => {
+        // Detectar separador: tabulación (Excel), punto y coma o coma
         let cells = line.includes('\t') ? line.split('\t') : 
                     line.includes(';') ? line.split(';') : line.split(',');
         cells = cells.map(c => c.trim());
+        
         if (cells.length < 4) return;
 
         const [name, phone, area, role] = cells;
+        
+        // Saltar fila de encabezados si se detecta
         if (idx === 0 && !skippedHeader) {
           const headerWords = ['nombre', 'name', 'telefono', 'teléfono', 'phone', 'area', 'área', 'cargo', 'role'];
           if (headerWords.some(w => name.toLowerCase().includes(w))) {
@@ -357,11 +388,23 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
             return;
           }
         }
-        employees.push({ name, phone, area, role });
+        
+        // Validación básica
+        if (name && phone && area && role) {
+          employees.push({ name, phone, area, role });
+        }
       });
 
-      if (employees.length === 0) { alert('No se detectaron empleados válidos'); return; }
-      if (!confirm(`¿Importar ${employees.length} empleados?`)) return;
+      if (employees.length === 0) { 
+        alert('No se detectaron empleados válidos. Verifica el formato (Nombre, Teléfono, Área, Cargo).'); 
+        return; 
+      }
+      
+      if (!confirm(`Se detectaron ${employees.length} empleados. ¿Deseas importarlos?`)) return;
+
+      const btn = document.querySelector('#bulkModal .btn-primary');
+      btn.disabled = true;
+      btn.textContent = '⏳ Procesando...';
 
       try {
         const res = await fetch('/api/employees/bulk', {
@@ -372,28 +415,38 @@ María López	59171111111	Compras	Analista" style="font-family: monospace; font-
             createAreas: document.getElementById('bulkCreateAreas').checked
           })
         });
+        
         const data = await res.json();
         
-        let html = `<div class="alert alert-success">✅ ${data.created} creados, ${data.updated} actualizados</div>`;
+        let html = `<div class="alert alert-success" style="background: var(--success-bg); color: var(--success); padding: 12px; border-radius: 4px; margin-bottom: 12px;">✅ Éxito: ${data.created} creados, ${data.updated} actualizados.</div>`;
+        
         if (data.errors && data.errors.length > 0) {
-          html += `<div class="alert alert-error">❌ ${data.errors.length} errores:<ul style="margin-top: 8px;">`;
+          html += `<div class="alert alert-error" style="background: var(--error-bg); color: var(--error); padding: 12px; border-radius: 4px;">❌ ${data.errors.length} errores:<ul style="margin-top: 8px; padding-left: 20px;">`;
           data.errors.slice(0, 5).forEach(e => {
             html += `<li>Fila ${e.row}: ${e.error}</li>`;
           });
           if (data.errors.length > 5) html += `<li>...y ${data.errors.length - 5} más</li>`;
           html += '</ul></div>';
         }
+        
         document.getElementById('bulkResults').innerHTML = html;
 
         if (data.created > 0 || data.updated > 0) {
           cacheTime = 0;
           await loadData();
         }
-      } catch { alert('Error de red'); }
+      } catch (error) {
+        console.error(error);
+        document.getElementById('bulkResults').innerHTML = `<div class="alert alert-error" style="color: var(--error);">❌ Error de red o del servidor.</div>`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📥 Procesar Importación';
+      }
     }
 
     loadData();
-    setInterval(loadData, 20000);
+    // Actualizar cada 30 segundos en lugar de 20 para no saturar
+    setInterval(loadData, 30000);
   </script>
 </body>
 </html>
